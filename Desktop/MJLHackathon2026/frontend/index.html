@@ -26,7 +26,14 @@
             <h2>Wildlife Sightings Map</h2>
             <div id="map"></div>
             <div id="countyInfo">
-                <p>Click on a county to highlight wildlife sightings</p>
+                <div class="countyHeader">
+                    <h3 id="countyName">No county selected</h3>
+                    <button id="clearSelection" style="display:none">Clear</button>
+                </div>
+                <div id="sightingsControls">
+                    <p class="hint">Sightings (placeholder). Filters and controls will appear here.</p>
+                </div>
+                <ul id="sightingsList"></ul>
             </div>
         </section>
 
