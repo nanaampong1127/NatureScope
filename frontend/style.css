@@ -85,14 +85,28 @@ section h2 {
 
 .sightingsFilterGroup {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 1rem;
     flex-wrap: wrap;
 }
 
-.sightingsFilterGroup label {
+.filterRow {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.filterItem {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filterItem label {
     font-weight: bold;
     color: #333;
+    font-size: 0.95rem;
 }
 
 .yearRangeLabel {

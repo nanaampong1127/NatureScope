@@ -10,6 +10,7 @@ let currentSightings = [];
 let currentPage = 1;
 const itemsPerPage = 10;
 let selectedYear = null; // null means show all years
+let selectedKingdom = null; // null means show all (fauna and flora)
 
 document.addEventListener('DOMContentLoaded', function () {
     // Initialize the map
@@ -221,18 +222,32 @@ function fetchGBIFData(bounds, limit = 300) {
             }
             console.log(`Found ${data.results.length} occurrences`);
             // transform GBIF results to our sighting format
-            return data.results.map(r => ({
-                id: r.key,
-                species: r.species || r.scientificName || 'Unknown',
-                date: r.eventDate ? r.eventDate.split('T')[0] : r.year ? `${r.year}-01-01` : 'Unknown',
-                year: r.year || (r.eventDate ? parseInt(r.eventDate.split('-')[0]) : null),
-                taxonRank: r.taxonRank || '',
-                recordedBy: r.recordedBy || '',
-                lat: r.decimalLatitude,
-                lng: r.decimalLongitude,
-                mediaCount: r.mediaCount || 0,
-                mediaItems: r.media || []  // may include media URLs
-            }));
+            return data.results.map(r => {
+                const kingdom = r.kingdom || '';
+                let type = 'Other';
+                if (kingdom.toLowerCase() === 'animalia') {
+                    type = 'Fauna';
+                } else if (kingdom.toLowerCase() === 'plantae') {
+                    type = 'Flora';
+                } else if (kingdom.toLowerCase() === 'fungi') {
+                    type = 'Fungi';
+                }
+
+                return {
+                    id: r.key,
+                    species: r.species || r.scientificName || 'Unknown',
+                    date: r.eventDate ? r.eventDate.split('T')[0] : r.year ? `${r.year}-01-01` : 'Unknown',
+                    year: r.year || (r.eventDate ? parseInt(r.eventDate.split('-')[0]) : null),
+                    taxonRank: r.taxonRank || '',
+                    kingdom: kingdom,
+                    type: type,  // 'Fauna', 'Flora', 'Fungi', 'Other'
+                    recordedBy: r.recordedBy || '',
+                    lat: r.decimalLatitude,
+                    lng: r.decimalLongitude,
+                    mediaCount: r.mediaCount || 0,
+                    mediaItems: r.media || []  // may include media URLs
+                };
+            });
         })
         .catch(error => {
             console.error('Error fetching GBIF data:', error);
@@ -323,6 +338,7 @@ function renderSightings(countyName, layer) {
         currentSightings = sightings;
         currentPage = 1;
         selectedYear = null;
+        selectedKingdom = null;
 
         if (sightings.length === 0) {
             list.innerHTML = '';
@@ -337,19 +353,39 @@ function renderSightings(countyName, layer) {
         const years = [...new Set(sightings.map(s => s.year).filter(Boolean))].sort((a, b) => b - a);
         const yearRange = years.length > 0 ? `${Math.max(...years)} - ${Math.min(...years)}` : 'N/A';
 
-        // Update sightings controls with year filter
+        // Extract unique types (Fauna, Flora, etc.) for filtering
+        const types = [...new Set(sightings.map(s => s.type).filter(Boolean))].sort();
+        const typeCounts = {};
+        types.forEach(type => {
+            typeCounts[type] = sightings.filter(s => s.type === type).length;
+        });
+
+        // Update sightings controls with both filters
         const controlsDiv = document.getElementById('sightingsControls');
         if (controlsDiv) {
             let filterHTML = `<div class="sightingsFilterGroup">
-                <label for="yearFilter">Filter by Year (<span class="yearRangeLabel">${yearRange}</span>):</label>
-                <select id="yearFilter" onchange="filterByYear(this.value)">
-                    <option value="" selected>All Years (${sightings.length})</option>`;
+                <div class="filterRow">
+                    <div class="filterItem">
+                        <label for="typeFilter">Filter by Type:</label>
+                        <select id="typeFilter" onchange="filterByType(this.value)">
+                            <option value="" selected>All Types (${sightings.length})</option>`;
+            types.forEach(type => {
+                filterHTML += `<option value="${type}">${type} (${typeCounts[type]})</option>`;
+            });
+            filterHTML += `</select>
+                    </div>
+                    <div class="filterItem">
+                        <label for="yearFilter">Filter by Year (<span class="yearRangeLabel">${yearRange}</span>):</label>
+                        <select id="yearFilter" onchange="filterByYear(this.value)">
+                            <option value="" selected>All Years (${sightings.length})</option>`;
             years.forEach(year => {
                 const yearCount = sightings.filter(s => s.year === year).length;
                 filterHTML += `<option value="${year}">${year} (${yearCount})</option>`;
             });
             filterHTML += `</select>
-                <button class="clearFilterBtn" onclick="filterByYear('')">Show All</button>
+                    </div>
+                </div>
+                <button class="clearFilterBtn" onclick="clearAllFilters()">Clear All Filters</button>
                 <span class="sightingCount">Total: ${sightings.length} sightings</span>
             </div>`;
             controlsDiv.innerHTML = filterHTML;
@@ -367,10 +403,13 @@ function renderPage() {
 
     list.innerHTML = '';
 
-    // Filter sightings by selected year
+    // Filter sightings by selected year and type
     let filteredSightings = currentSightings;
     if (selectedYear) {
-        filteredSightings = currentSightings.filter(s => s.year === selectedYear);
+        filteredSightings = filteredSightings.filter(s => s.year === selectedYear);
+    }
+    if (selectedKingdom) {
+        filteredSightings = filteredSightings.filter(s => s.type === selectedKingdom);
     }
 
     if (filteredSightings.length === 0) {
@@ -476,6 +515,19 @@ function filterByYear(year) {
     renderPage();
 }
 
+function filterByType(type) {
+    selectedKingdom = type ? type : null;
+    currentPage = 1;
+    renderPage();
+}
+
+function clearAllFilters() {
+    selectedYear = null;
+    selectedKingdom = null;
+    currentPage = 1;
+    renderPage();
+}
+
 function clearSelection() {
     if (highlightedLayer) {
         if (highlightedLayer.defaultStyle) highlightedLayer.setStyle(highlightedLayer.defaultStyle);
@@ -495,4 +547,5 @@ function clearSelection() {
     currentSightings = [];
     currentPage = 1;
     selectedYear = null;
+    selectedKingdom = null;
 }
