@@ -87,6 +87,12 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     }
+
+    // Setup reset map button
+    const resetMapBtn = document.getElementById('resetMapBtn');
+    if (resetMapBtn) {
+        resetMapBtn.addEventListener('click', resetMapView);
+    }
 });
 
 function initializeMap() {
@@ -107,18 +113,54 @@ function initializeMap() {
     loadCounties();
 }
 
+function resetMapView() {
+    // Reset map to Wisconsin view
+    map.setView([44.2685, -89.6165], 7);
+    console.log('Map view reset to Wisconsin');
+}
+
 // --- Modal Functions ---
-function openImageModal(imageUrl, caption) {
+function openImageModal(imageUrl, caption, recordedBy) {
     const modal = document.getElementById('imageModal');
     const modalImage = document.getElementById('modalImage');
+    const modalCaption = document.getElementById('modalCaption');
 
     if (modal && modalImage) {
         modalImage.src = imageUrl;
+        if (modalCaption) {
+            let captionText = caption || 'Wildlife Sighting';
+            if (recordedBy) {
+                captionText += ` • Contributed by ${recordedBy}`;
+            }
+            modalCaption.textContent = captionText;
+        }
         modal.classList.add('show');
         console.log('Opened image modal for:', caption);
     } else {
         console.error('Modal elements not found in DOM');
     }
+}
+
+// --- Helper function for species links ---
+function createSpeciesLinks(speciesName) {
+    if (!speciesName || speciesName === 'Unknown' || speciesName === 'Unknown Species') {
+        return speciesName;
+    }
+
+    // Encode species name for URLs
+    const encodedName = encodeURIComponent(speciesName);
+    const wikipediaUrl = `https://en.wikipedia.org/wiki/${encodedName.replace(/%20/g, '_')}`;
+    const inaturalistUrl = `https://www.inaturalist.org/search?q=${encodedName}`;
+    const gbifUrl = `https://www.gbif.org/species/search?q=${encodedName}`;
+
+    return `<span class="species-name-wrapper">
+        <strong>${speciesName}</strong>
+        <span class="species-links">
+            <a href="${wikipediaUrl}" target="_blank" rel="noopener noreferrer" class="species-link" title="View on Wikipedia">📖</a>
+            <a href="${inaturalistUrl}" target="_blank" rel="noopener noreferrer" class="species-link" title="Search on iNaturalist">🔍</a>
+            <a href="${gbifUrl}" target="_blank" rel="noopener noreferrer" class="species-link" title="View on GBIF">🌿</a>
+        </span>
+    </span>`;
 }
 
 function closeImageModal() {
@@ -202,6 +244,10 @@ function onCountyFeature(feature, layer) {
     // click: make this the highlighted (selected) county
     layer.on('click', function () {
         setHighlightedLayer(this, countyName);
+        // Zoom to the county bounds
+        if (countyBounds[countyName]) {
+            map.fitBounds(countyBounds[countyName], { padding: [50, 50] });
+        }
     });
 
     // hover: only a temporary visual effect, do not replace the selected county
@@ -413,7 +459,7 @@ function updateSightingMarkers(sightings) {
         const buildPopupContent = (imageSection) => {
             const recordedBy = s.recordedBy ? `<br><small>Recorded by ${s.recordedBy}</small>` : '';
             return `
-                <strong>${s.species}</strong><br>
+                <strong class="popup-species-link" style="cursor:pointer; color:#2d5016; text-decoration:underline; user-select:none;" title="Click to view on Wikipedia" data-species-name="${s.species}">${s.species}</strong><br>
                 <span style="color:#666">${s.date} · ${s.type || 'Unknown'}</span>${recordedBy}
                 <div style="margin:0.5rem 0; text-align:center;">${imageSection}</div>
             `;
@@ -433,10 +479,24 @@ function updateSightingMarkers(sightings) {
                     popup.setContent(buildPopupContent(imgHtml));
                     const imgEl = popup.getElement()?.querySelector('img');
                     if (imgEl) {
-                        imgEl.addEventListener('click', () => openImageModal(imageUrl, s.species));
+                        imgEl.addEventListener('click', () => openImageModal(imageUrl, s.species, s.recordedBy));
                     }
                 } else {
                     popup.setContent(buildPopupContent('<span style="color:#999;font-size:0.85rem;">No image available</span>'));
+                }
+                // Add click handler to species name in popup
+                const speciesLink = popup.getElement()?.querySelector('.popup-species-link');
+                if (speciesLink) {
+                    speciesLink.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const speciesName = speciesLink.getAttribute('data-species-name');
+                        if (speciesName) {
+                            const encodedName = encodeURIComponent(speciesName);
+                            const wikipediaUrl = `https://en.wikipedia.org/wiki/${encodedName.replace(/%20/g, '_')}`;
+                            window.open(wikipediaUrl, '_blank', 'noopener,noreferrer');
+                        }
+                    });
                 }
             });
         });
@@ -455,6 +515,35 @@ function focusSightingOnMap(sighting) {
     map.setView([sighting.lat, sighting.lng], Math.max(map.getZoom(), 14));
     const marker = sightingMarkerMap[sighting.id];
     if (marker) marker.openPopup();
+}
+
+function highlightSightingInList(sightingId) {
+    // Find the list item with this sighting ID
+    const listItem = document.querySelector(`[data-sighting-id="${sightingId}"]`);
+    if (!listItem) {
+        console.warn('Sighting not found in current page view:', sightingId);
+        return;
+    }
+
+    // Remove previous highlights
+    document.querySelectorAll('.sightingItem-highlighted').forEach(item => {
+        item.classList.remove('sightingItem-highlighted');
+    });
+
+    // Add highlight to the target item
+    listItem.classList.add('sightingItem-highlighted');
+
+    // Scroll the item into view smoothly
+    listItem.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'nearest'
+    });
+
+    // Remove highlight after 3 seconds
+    setTimeout(() => {
+        listItem.classList.remove('sightingItem-highlighted');
+    }, 3000);
 }
 
 function renderSightings(countyName, layer) {
@@ -522,7 +611,11 @@ function renderSightings(countyName, layer) {
         // Update sightings controls with both filters
         const controlsDiv = document.getElementById('sightingsControls');
         if (controlsDiv) {
-            let filterHTML = `<div class="sightingsFilterGroup">
+            let filterHTML = `<div class="filter-header">
+                <span class="filter-title">Filters</span>
+                <button class="filter-toggle-btn" onclick="toggleFilters()" title="Toggle filters visibility">▼</button>
+            </div>
+            <div class="sightingsFilterGroup">
                 <div class="filterRow">
                     <div class="filterItem">
                         <label for="typeFilter">Filter by Type:</label>
@@ -594,9 +687,10 @@ function renderPage() {
     pageItems.forEach((s, index) => {
         const li = document.createElement('li');
         li.className = 'sightingItem' + (s.lat != null && s.lng != null ? ' sightingItem-clickable' : '');
+        li.setAttribute('data-sighting-id', s.id);
 
-        const note = s.recordedBy ? ` (recorded by ${s.recordedBy})` : '';
-        const textContent = `<strong>${s.species}</strong> — ${s.date}${note}`;
+        const speciesHTML = createSpeciesLinks(s.species);
+        const textContent = `${speciesHTML} — ${s.date}`;
 
         // Create container with text on left
         li.innerHTML = `
@@ -625,7 +719,7 @@ function renderPage() {
                     const img = imgContainer.querySelector('img');
                     if (img) {
                         img.addEventListener('click', function () {
-                            openImageModal(imageUrl, s.species);
+                            openImageModal(imageUrl, s.species, s.recordedBy);
                         });
                     }
                 } else {
@@ -647,7 +741,15 @@ function renderPage() {
 
         const pageInfo = document.createElement('span');
         pageInfo.className = 'pageInfo';
-        pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+        pageInfo.innerHTML = `Page 
+            <input type="number" 
+                   class="pageNumberInput" 
+                   min="1" 
+                   max="${totalPages}" 
+                   value="${currentPage}"
+                   onchange="goToPage(parseInt(this.value))" 
+                   title="Enter page number"> 
+            of ${totalPages}`;
 
         const nextBtn = document.createElement('button');
         nextBtn.textContent = 'Next';
@@ -696,6 +798,30 @@ function clearAllFilters() {
     selectedKingdom = null;
     currentPage = 1;
     renderPage();
+}
+
+function toggleFilters() {
+    const filterGroup = document.querySelector('.sightingsFilterGroup');
+    const toggleBtn = document.querySelector('.filter-toggle-btn');
+    const controlsDiv = document.getElementById('sightingsControls');
+
+    if (filterGroup && toggleBtn && controlsDiv) {
+        controlsDiv.classList.toggle('filters-collapsed');
+        toggleBtn.textContent = controlsDiv.classList.contains('filters-collapsed') ? '▶' : '▼';
+    }
+}
+
+function goToPage(pageNum) {
+    const filteredSightings = getFilteredSightings();
+    const totalPages = Math.ceil(filteredSightings.length / itemsPerPage);
+
+    if (pageNum >= 1 && pageNum <= totalPages) {
+        currentPage = pageNum;
+        renderPage();
+    } else {
+        // Reset to valid page if invalid input
+        renderPage();
+    }
 }
 
 function clearSelection() {
@@ -814,12 +940,15 @@ function displayIdentificationResults(results) {
             <div class="details-section">
                 <h4>Alternative Classifications</h4>
                 <div class="alternatives-list">
-                    ${results.all_labels.slice(1, 5).map(label => `
-                        <div class="alternative-item">
-                            <span>${label.description}</span>
-                            <span class="confidence-badge">${Math.round(label.score * 100)}%</span>
-                        </div>
-                    `).join('')}
+                    ${results.all_labels.slice(1, 5).map(label => {
+            const alternativeLinks = createSpeciesLinks(label.description);
+            return `
+                            <div class="alternative-item">
+                                <span>${alternativeLinks}</span>
+                                <span class="confidence-badge">${Math.round(label.score * 100)}%</span>
+                            </div>
+                        `;
+        }).join('')}
                 </div>
             </div>
         `;
@@ -879,11 +1008,13 @@ function displayIdentificationResults(results) {
         <img src="${lastUploadedImageData}" alt="Uploaded species image" class="results-image" />
     ` : '';
 
+    const speciesLinksHTML = createSpeciesLinks(species);
+
     const resultsHTML = `
         <div class="results-content">
             ${uploadedImageHTML}
             <div class="results-header">
-                <h3>${species}</h3>
+                <h3>${speciesLinksHTML}</h3>
                 <div class="result-item">
                     <span class="result-label">Confidence:</span>
                     <span class="result-value confidence-score">${confidence}</span>
@@ -929,23 +1060,23 @@ function sendImageToBackend(imageData, fileName) {
         method: 'POST',
         body: formData
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`Backend error: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success && data.result) {
-            displayIdentificationResults(data.result);
-        } else {
-            showIdentifyError(data.result?.error || 'Classification failed');
-        }
-    })
-    .catch(error => {
-        console.error('Error sending image to backend:', error);
-        showIdentifyError('Could not connect to classifier backend. Make sure it is running on http://localhost:5000');
-    });
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Backend error: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.result) {
+                displayIdentificationResults(data.result);
+            } else {
+                showIdentifyError(data.result?.error || 'Classification failed');
+            }
+        })
+        .catch(error => {
+            console.error('Error sending image to backend:', error);
+            showIdentifyError('Could not connect to classifier backend. Make sure it is running on http://localhost:5000');
+        });
 }
 
 // Mock results function (kept for reference, no longer used)

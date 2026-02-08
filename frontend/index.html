@@ -7,7 +7,8 @@
     <title>NatureScope</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <link rel="stylesheet" href="style.css">
 </head>
@@ -69,7 +70,11 @@
             <div id="countyInfo" class="county-info">
                 <div class="county-header">
                     <span id="countyName" class="county-name">Select a County</span>
-                    <button id="clearBtn" class="btn-clear">Clear</button>
+                    <div class="county-controls">
+                        <button id="resetMapBtn" class="btn-reset" title="Reset map to Wisconsin view">🔄 Reset
+                            Map</button>
+                        <button id="clearBtn" class="btn-clear">Clear</button>
+                    </div>
                 </div>
                 <div id="sightingsControls" class="sightings-controls"></div>
                 <ul id="sightingsList" class="sightings-list"></ul>
@@ -80,6 +85,7 @@
     <div id="imageModal" class="modal">
         <span class="modal-close">&times;</span>
         <img id="modalImage" src="" alt="Enlarged sighting image" />
+        <div id="modalCaption" class="modal-caption"></div>
     </div>
 
     <section id="identify-section" class="identify-container">
