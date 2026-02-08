@@ -14,6 +14,10 @@ const itemsPerPage = 10;
 let selectedYear = null; // null means show all years
 let selectedKingdom = null; // null means show all (fauna and flora)
 
+// Header hide/show state
+let lastScrollTop = 0;
+let isHeaderHidden = false;
+
 document.addEventListener('DOMContentLoaded', function () {
     // Initialize the map
     initializeMap();
@@ -93,6 +97,37 @@ document.addEventListener('DOMContentLoaded', function () {
     if (resetMapBtn) {
         resetMapBtn.addEventListener('click', resetMapView);
     }
+
+    // Setup header hide/show on scroll
+    window.addEventListener('scroll', function () {
+        const header = document.querySelector('header');
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+        // Only hide if scrolled past 100px
+        if (scrollTop > 100) {
+            if (scrollTop > lastScrollTop) {
+                // Scrolling down - hide header
+                if (!isHeaderHidden) {
+                    header.classList.add('hide-header');
+                    isHeaderHidden = true;
+                }
+            } else {
+                // Scrolling up - show header
+                if (isHeaderHidden) {
+                    header.classList.remove('hide-header');
+                    isHeaderHidden = false;
+                }
+            }
+        } else {
+            // Always show header when near top
+            if (isHeaderHidden) {
+                header.classList.remove('hide-header');
+                isHeaderHidden = false;
+            }
+        }
+
+        lastScrollTop = scrollTop;
+    });
 });
 
 function initializeMap() {
@@ -837,7 +872,7 @@ function clearSelection() {
     if (countyNameEl) countyNameEl.textContent = 'Select a County';
     if (clearBtn) clearBtn.style.display = 'none';
     if (list) list.innerHTML = '';
-    if (controlsDiv) controlsDiv.innerHTML = '<p class="hint">Sightings (placeholder). Filters and controls will appear here.</p>';
+    if (controlsDiv) controlsDiv.innerHTML = '<p class="hint">Sightings will be shown here. Filters and controls will appear here.</p>';
 
     if (sightingMarkersLayer) sightingMarkersLayer.clearLayers();
     Object.keys(sightingMarkerMap).forEach(k => delete sightingMarkerMap[k]);
