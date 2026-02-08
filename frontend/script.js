@@ -725,6 +725,8 @@ function clearSelection() {
 
 // --- SPECIES IDENTIFICATION ---
 
+let lastUploadedImageData = null;
+
 function handleImageUpload(file) {
     if (!file) return;
 
@@ -746,6 +748,7 @@ function handleImageUpload(file) {
     const reader = new FileReader();
     reader.onload = function (e) {
         const imageData = e.target.result;
+        lastUploadedImageData = imageData;
 
         // Display uploaded image in results area
         setTimeout(() => {
@@ -872,8 +875,13 @@ function displayIdentificationResults(results) {
         `;
     }
 
+    const uploadedImageHTML = lastUploadedImageData ? `
+        <img src="${lastUploadedImageData}" alt="Uploaded species image" class="results-image" />
+    ` : '';
+
     const resultsHTML = `
         <div class="results-content">
+            ${uploadedImageHTML}
             <div class="results-header">
                 <h3>${species}</h3>
                 <div class="result-item">
