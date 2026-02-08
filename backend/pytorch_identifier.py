@@ -1,9 +1,9 @@
-"""Lightweight PyTorch plant-vs-animal identifier
+"""Ensemble plant-vs-animal identifier using multiple pretrained models
+
+Uses ResNet50, EfficientNet-B2, and Vision Transformer (ViT-B16) for robust
+classification. Ensembles their predictions for higher accuracy.
 
 Returns JSON with decision, confidence and top predictions.
-
-This uses a pretrained ResNet50 from torchvision and simple keyword heuristics
-on ImageNet class names to decide whether an image is a plant or an animal.
 """
 
 import io
@@ -20,26 +20,47 @@ except Exception as e:
 
 _IMAGE_NET_CLASSES_URL = "https://raw.githubusercontent.com/pytorch/hub/master/imagenet_classes.txt"
 
-_MODEL = None
+# Cached models and transforms
+_MODELS = {}  # {model_name: model}
 _LABELS: Optional[List[str]] = None
-_TRANSFORM = None
+_TRANSFORMS = {}  # {model_name: transform}
 
-_PLANT_KEYWORDS = {
-    'plant', 'flower', 'tree', 'leaf', 'mushroom', 'fungus', 'orchid', 'rose',
-    'daisy', 'tulip', 'vegetable', 'fruit', 'cabbage', 'cucumber', 'banana',
-    'corn', 'grass', 'herb', 'moss', 'fern', 'cactus', 'succulent', 'pine',
-    'oak', 'maple', 'palm', 'bamboo', 'ivy', 'berry', 'seed', 'cone', 'algae'
+# High-confidence plant keywords (weighted higher in scoring)
+_PLANT_KEYWORDS_PRIMARY = {
+    'plant', 'flower', 'tree', 'leaf', 'leaves', 'blossom', 'petal',
+    'vegetable', 'fruit', 'shrub', 'bush', 'herb', 'succulent', 'cactus',
+    'fern', 'moss', 'seaweed', 'grass', 'grain', 'cereal', 'legume'
 }
 
-_ANIMAL_KEYWORDS = {
-    'dog', 'cat', 'bird', 'fish', 'mammal', 'insect', 'butterfly', 'beetle',
-    'spider', 'horse', 'cow', 'sheep', 'pig', 'lion', 'tiger', 'bear', 'frog',
-    'toad', 'snake', 'lizard', 'monkey', 'ape', 'whale', 'shark', 'ant', 'bee',
+# Supporting plant keywords
+_PLANT_KEYWORDS_SECONDARY = {
+    'orchid', 'rose', 'daisy', 'tulip', 'sunflower', 'lily', 'iris', 'lotus',
+    'cabbage', 'carrot', 'potato', 'tomato', 'lettuce', 'spinach', 'broccoli',
+    'banana', 'apple', 'orange', 'grape', 'strawberry', 'blueberry', 'raspberry',
+    'corn', 'wheat', 'rice', 'barley', 'oats', 'pine', 'oak', 'maple', 'birch',
+    'palm', 'bamboo', 'willow', 'pine', 'spruce', 'elm', 'ash', 'beech',
+    'ivy', 'vine', 'climbing', 'weed', 'lichen', 'fungus', 'mushroom', 'toadstool'
+}
+
+_PLANT_KEYWORDS = _PLANT_KEYWORDS_PRIMARY | _PLANT_KEYWORDS_SECONDARY
+
+# High-confidence animal keywords (weighted higher in scoring)
+_ANIMAL_KEYWORDS_PRIMARY = {
+    'dog', 'cat', 'bird', 'fish', 'mammal', 'insect', 'animal',
+    'horse', 'cow', 'sheep', 'pig', 'monkey', 'bear', 'lion', 'tiger',
+    'snake', 'lizard', 'frog', 'turtle', 'beetle', 'butterfly', 'ant', 'bee'
+}
+
+# Supporting animal keywords
+_ANIMAL_KEYWORDS_SECONDARY = {
+    'puppy', 'kitten', 'spider', 'squirrel', 'rabbit', 'deer', 'wolf', 'fox',
+    'whale', 'dolphin', 'shark', 'eagle', 'owl', 'duck', 'goose', 'penguin',
+    'zebra', 'giraffe', 'elephant', 'rhinoceros', 'hippopotamus', 'otter', 'seal',
     'dragonfly', 'cricket', 'grasshopper', 'moth', 'wasp', 'fly', 'mosquito',
-    'termite', 'worm', 'snail', 'crab', 'lobster', 'turtle', 'eagle', 'owl',
-    'duck', 'goose', 'deer', 'wolf', 'fox', 'rabbit', 'squirrel', 'otter',
-    'seal', 'dolphin', 'zebra', 'giraffe'
+    'termite', 'snail', 'crab', 'lobster', 'shrimp', 'scorpion', 'worm'
 }
+
+_ANIMAL_KEYWORDS = _ANIMAL_KEYWORDS_PRIMARY | _ANIMAL_KEYWORDS_SECONDARY
 
 
 def _load_imagenet_labels() -> List[str]:
@@ -55,98 +76,157 @@ def _load_imagenet_labels() -> List[str]:
     return [str(i) for i in range(1000)]
 
 
-def _get_model_bundle() -> Tuple[object, List[str], object]:
-    """Return cached (model, labels, transform)."""
-    global _MODEL, _LABELS, _TRANSFORM
+def _get_model_bundle() -> Tuple[Dict, List[str], Dict]:
+    """Return cached (models_dict, labels, transforms_dict) for all ensemble models."""
+    global _MODELS, _LABELS, _TRANSFORMS
 
-    if _MODEL is not None and _LABELS is not None and _TRANSFORM is not None:
-        return _MODEL, _LABELS, _TRANSFORM
+    if _MODELS and _LABELS and _TRANSFORMS:
+        return _MODELS, _LABELS, _TRANSFORMS
 
-    weights = None
-    try:
-        weights = models.ResNet50_Weights.DEFAULT
-        _MODEL = models.resnet50(weights=weights)
-    except Exception:
-        _MODEL = models.resnet50(pretrained=True)
-
-    _MODEL.eval()
-
-    labels = []
-    if weights is not None:
-        labels = list(weights.meta.get("categories", []))
-    if not labels:
-        labels = _load_imagenet_labels()
+    labels = _load_imagenet_labels()
     _LABELS = labels
 
-    if weights is not None:
-        _TRANSFORM = weights.transforms()
-    else:
-        _TRANSFORM = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+    # Load ResNet50
+    try:
+        weights_resnet = models.ResNet50_Weights.DEFAULT
+        model_resnet = models.resnet50(weights=weights_resnet)
+        model_resnet.eval()
+        _MODELS['resnet50'] = model_resnet
+        _TRANSFORMS['resnet50'] = weights_resnet.transforms()
+    except Exception as e:
+        print(f"[WARNING] Failed to load ResNet50: {e}")
 
-    return _MODEL, _LABELS, _TRANSFORM
+    # Load EfficientNet-B2
+    try:
+        weights_effnet = models.EfficientNet_B2_Weights.DEFAULT
+        model_effnet = models.efficientnet_b2(weights=weights_effnet)
+        model_effnet.eval()
+        _MODELS['efficientnet_b2'] = model_effnet
+        _TRANSFORMS['efficientnet_b2'] = weights_effnet.transforms()
+    except Exception as e:
+        print(f"[WARNING] Failed to load EfficientNet-B2: {e}")
+
+    # Load Vision Transformer B-16
+    try:
+        weights_vit = models.ViT_B_16_Weights.DEFAULT
+        model_vit = models.vit_b_16(weights=weights_vit)
+        model_vit.eval()
+        _MODELS['vit_b_16'] = model_vit
+        _TRANSFORMS['vit_b_16'] = weights_vit.transforms()
+    except Exception as e:
+        print(f"[WARNING] Failed to load ViT-B16: {e}")
+
+    if not _MODELS:
+        raise RuntimeError("Failed to load any ensemble models")
+
+    return _MODELS, _LABELS, _TRANSFORMS
 
 
 def _prepare_image(image: Image.Image, transform) -> object:
     return transform(image).unsqueeze(0)
 
 
-def _download_image(url: str) -> Image.Image:
-    r = requests.get(url, timeout=15, headers={"User-Agent": "NatureScope/1.0"})
-    r.raise_for_status()
-    return Image.open(io.BytesIO(r.content)).convert('RGB')
-
-
 def classify_image_source(image_bytes: bytes, model=None, labels=None) -> Dict:
-    """Classify image bytes and decide plant vs animal."""
+    """Classify image bytes using ensemble of models (ResNet50, EfficientNet-B2, ViT-B16)."""
     # Load resources lazily (with caching)
-    if model is None or labels is None:
-        model, labels, transform = _get_model_bundle()
+    if not model or not labels:
+        models_dict, labels, transforms_dict = _get_model_bundle()
     else:
-        transform = _TRANSFORM or transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+        transforms_dict = _TRANSFORMS
 
     # Load image from bytes
     img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-    inp = _prepare_image(img, transform)
 
-    with torch.inference_mode():
-        out = model(inp)
-        probs = torch.nn.functional.softmax(out[0], dim=0)
+    # Run inference on all ensemble models
+    ensemble_scores = {
+        'plant_scores': [],
+        'animal_scores': [],
+        'all_predictions': []
+    }
 
-    topk = 5
-    top_prob, top_idx = probs.topk(topk)
-    top_predictions = []
-    for p, idx in zip(top_prob.tolist(), top_idx.tolist()):
-        label = labels[idx] if idx < len(labels) else "unknown"
-        top_predictions.append({"label": label, "probability": float(p)})
+    for model_name, model in models_dict.items():
+        transform = transforms_dict.get(model_name)
+        if not transform:
+            continue
 
-    # Heuristic decision based on labels
-    # Count hits in top predictions
-    plant_score = 0.0
-    animal_score = 0.0
-    for pred in top_predictions:
-        txt = pred['label'].lower()
-        prob = pred['probability']
-        if any(k in txt for k in _PLANT_KEYWORDS):
-            plant_score += prob
-        if any(k in txt for k in _ANIMAL_KEYWORDS):
-            animal_score += prob
+        try:
+            inp = _prepare_image(img, transform)
 
-    # Always decide between plant or animal (pick the higher score)
-    decision = 'plant' if plant_score >= animal_score else 'animal'
-    confidence = max(plant_score, animal_score)
+            with torch.inference_mode():
+                out = model(inp)
+                probs = torch.nn.functional.softmax(out[0], dim=0)
+
+            topk = 5
+            top_prob, top_idx = probs.topk(topk)
+
+            # Get predictions for this model
+            model_predictions = []
+            plant_score = 0.0
+            animal_score = 0.0
+
+            for rank, (p, idx) in enumerate(zip(top_prob.tolist(), top_idx.tolist())):
+                label = labels[idx] if idx < len(labels) else "unknown"
+                prob = float(p)
+                model_predictions.append({"label": label, "probability": prob})
+
+                # Calculate plant/animal scores
+                txt = label.lower()
+                rank_weight = 1.0 - (rank * 0.2)
+
+                plant_primary = any(k in txt for k in _PLANT_KEYWORDS_PRIMARY)
+                animal_primary = any(k in txt for k in _ANIMAL_KEYWORDS_PRIMARY)
+                plant_secondary = any(k in txt for k in _PLANT_KEYWORDS_SECONDARY)
+                animal_secondary = any(k in txt for k in _ANIMAL_KEYWORDS_SECONDARY)
+
+                if plant_primary:
+                    plant_score += prob * rank_weight * 1.5
+                elif plant_secondary:
+                    plant_score += prob * rank_weight * 1.0
+
+                if animal_primary:
+                    animal_score += prob * rank_weight * 1.5
+                elif animal_secondary:
+                    animal_score += prob * rank_weight * 1.0
+
+            ensemble_scores['plant_scores'].append(plant_score)
+            ensemble_scores['animal_scores'].append(animal_score)
+            ensemble_scores['all_predictions'].append(model_predictions)
+
+        except Exception as e:
+            print(f"[WARNING] Error in {model_name}: {e}")
+            continue
+
+    # Aggregate ensemble predictions
+    if not ensemble_scores['plant_scores']:
+        raise RuntimeError("No models produced valid predictions")
+
+    avg_plant_score = sum(ensemble_scores['plant_scores']) / len(ensemble_scores['plant_scores'])
+    avg_animal_score = sum(ensemble_scores['animal_scores']) / len(ensemble_scores['animal_scores'])
+
+    # Normalize scores
+    total_score = avg_plant_score + avg_animal_score
+    if total_score > 0:
+        plant_score_norm = avg_plant_score / total_score
+        animal_score_norm = avg_animal_score / total_score
+    else:
+        plant_score_norm = 0.5
+        animal_score_norm = 0.5
+
+    # Final decision from ensemble
+    decision = 'plant' if plant_score_norm >= 0.5 else 'animal'
+    confidence = max(plant_score_norm, animal_score_norm)
+
+    # Also return the top-1 prediction across ensemble (most common from first model)
+    top_predictions = ensemble_scores['all_predictions'][0] if ensemble_scores['all_predictions'] else []
 
     return {
         'decision': decision,
         'confidence': float(confidence),
-        'top_predictions': top_predictions
+        'top_predictions': top_predictions,
+        'ensemble_models': list(models_dict.keys()),
+        'ensemble_accuracy': {
+            'plant_score': float(avg_plant_score),
+            'animal_score': float(avg_animal_score),
+            'num_models': len(ensemble_scores['plant_scores'])
+        }
     }
