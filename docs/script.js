@@ -7,6 +7,14 @@ const sightingMarkerMap = {}; // sighting id -> marker (for opening popup from l
 const countyData = {};
 let countyBounds = {}; // store bounds keyed by county name
 
+// Colors for sighting markers by group (type)
+const MARKER_COLORS = {
+    Fauna: { fill: '#2e7d32', border: '#1b5e20' },
+    Flora: { fill: '#7cb342', border: '#558b2f' },
+    Fungi: { fill: '#ef6c00', border: '#e65100' },
+    Other: { fill: '#5c6bc0', border: '#3949ab' }
+};
+
 // Pagination and filtering state
 let currentSightings = [];
 let currentPage = 1;
@@ -166,9 +174,28 @@ function initializeMap() {
 
     sightingMarkersLayer = L.layerGroup().addTo(map);
 
+    // Legend for sighting groups (bottom-right)
+    addMapLegend();
+
     console.log('Map initialized');
     // Load US counties GeoJSON
     loadCounties();
+}
+
+function addMapLegend() {
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function () {
+        const div = L.DomUtil.create('div', 'map-legend');
+        div.innerHTML = `
+            <strong>Sightings by group</strong>
+            <div class="legend-item"><span class="legend-dot fauna"></span> Fauna</div>
+            <div class="legend-item"><span class="legend-dot flora"></span> Flora</div>
+            <div class="legend-item"><span class="legend-dot fungi"></span> Fungi</div>
+            <div class="legend-item"><span class="legend-dot other"></span> Other</div>
+        `;
+        return div;
+    };
+    legend.addTo(map);
 }
 
 function resetMapView() {
@@ -532,14 +559,16 @@ function updateSightingMarkers(sightings) {
     Object.keys(sightingMarkerMap).forEach(k => delete sightingMarkerMap[k]);
 
     const withCoords = (sightings || []).filter(s => s.lat != null && s.lng != null);
+    const colors = (s) => MARKER_COLORS[s.type] || MARKER_COLORS.Other;
     withCoords.forEach(s => {
+        const c = colors(s);
         const marker = L.circleMarker([s.lat, s.lng], {
-            radius: 6,
-            fillColor: '#2e7d32',
-            color: '#fff',
+            radius: 7,
+            fillColor: c.fill,
+            color: c.border,
             weight: 1.5,
             opacity: 1,
-            fillOpacity: 0.85
+            fillOpacity: 0.9
         });
 
         const buildPopupContent = (imageSection) => {
