@@ -17,6 +17,7 @@ let selectedKingdom = null; // null means show all (fauna and flora)
 // Header hide/show state
 let lastScrollTop = 0;
 let isHeaderHidden = false;
+let headerShowTimeout = null;
 
 document.addEventListener('DOMContentLoaded', function () {
     // Initialize the map
@@ -98,9 +99,10 @@ document.addEventListener('DOMContentLoaded', function () {
         resetMapBtn.addEventListener('click', resetMapView);
     }
 
-    // Setup header hide/show on scroll
+    // Setup header hide/show on scroll and hover
+    const header = document.querySelector('header');
+
     window.addEventListener('scroll', function () {
-        const header = document.querySelector('header');
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
 
         // Only hide if scrolled past 100px
@@ -110,12 +112,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (!isHeaderHidden) {
                     header.classList.add('hide-header');
                     isHeaderHidden = true;
-                }
-            } else {
-                // Scrolling up - show header
-                if (isHeaderHidden) {
-                    header.classList.remove('hide-header');
-                    isHeaderHidden = false;
                 }
             }
         } else {
@@ -127,6 +123,33 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         lastScrollTop = scrollTop;
+    });
+
+    // Show header on hover at top of page
+    document.addEventListener('mousemove', function (e) {
+        if (isHeaderHidden && e.clientY < 50) {
+            // Hovering near top - show header after 500ms
+            if (!headerShowTimeout) {
+                headerShowTimeout = setTimeout(function () {
+                    header.classList.remove('hide-header');
+                    isHeaderHidden = false;
+                    headerShowTimeout = null;
+                }, 500);
+            }
+        }
+    });
+
+    // Hide header again when mouse leaves top area
+    document.addEventListener('mouseleave', function () {
+        if (headerShowTimeout) {
+            clearTimeout(headerShowTimeout);
+            headerShowTimeout = null;
+        }
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        if (scrollTop > 100) {
+            header.classList.add('hide-header');
+            isHeaderHidden = true;
+        }
     });
 });
 
