@@ -2,6 +2,8 @@
 
 let map;
 let highlightedLayer = null;
+let sightingMarkersLayer = null;
+const sightingMarkerMap = {}; // sighting id -> marker (for opening popup from list)
 const countyData = {};
 let countyBounds = {}; // store bounds keyed by county name
 
@@ -97,6 +99,8 @@ function initializeMap() {
         attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19
     }).addTo(map);
+
+    sightingMarkersLayer = L.layerGroup().addTo(map);
 
     console.log('Map initialized');
     // Load US counties GeoJSON
@@ -383,6 +387,76 @@ function fetchWikimediaImage(species) {
         });
 }
 
+function getFilteredSightings() {
+    let filtered = currentSightings || [];
+    if (selectedYear) filtered = filtered.filter(s => s.year === selectedYear);
+    if (selectedKingdom) filtered = filtered.filter(s => s.type === selectedKingdom);
+    return filtered;
+}
+
+function updateSightingMarkers(sightings) {
+    if (!sightingMarkersLayer) return;
+    sightingMarkersLayer.clearLayers();
+    Object.keys(sightingMarkerMap).forEach(k => delete sightingMarkerMap[k]);
+
+    const withCoords = (sightings || []).filter(s => s.lat != null && s.lng != null);
+    withCoords.forEach(s => {
+        const marker = L.circleMarker([s.lat, s.lng], {
+            radius: 6,
+            fillColor: '#2e7d32',
+            color: '#fff',
+            weight: 1.5,
+            opacity: 1,
+            fillOpacity: 0.85
+        });
+
+        const buildPopupContent = (imageSection) => {
+            const recordedBy = s.recordedBy ? `<br><small>Recorded by ${s.recordedBy}</small>` : '';
+            return `
+                <strong>${s.species}</strong><br>
+                <span style="color:#666">${s.date} · ${s.type || 'Unknown'}</span>${recordedBy}
+                <div style="margin:0.5rem 0; text-align:center;">${imageSection}</div>
+            `;
+        };
+
+        marker.bindPopup(buildPopupContent('<span style="color:#999;font-size:0.85rem;">Loading...</span>'), {
+            maxWidth: 220,
+            minWidth: 200
+        });
+
+        marker.on('popupopen', function () {
+            fetchOccurrenceMedia(s.id, s.species, s.mediaItems).then(imageUrl => {
+                const popup = marker.getPopup();
+                if (!popup.isOpen()) return;
+                if (imageUrl) {
+                    const imgHtml = `<img src="${imageUrl}" alt="${s.species}" style="max-width:180px; max-height:140px; object-fit:cover; border-radius:6px; cursor:pointer; display:block; margin:0 auto;" crossorigin="anonymous" title="Click to enlarge">`;
+                    popup.setContent(buildPopupContent(imgHtml));
+                    const imgEl = popup.getElement()?.querySelector('img');
+                    if (imgEl) {
+                        imgEl.addEventListener('click', () => openImageModal(imageUrl, s.species));
+                    }
+                } else {
+                    popup.setContent(buildPopupContent('<span style="color:#999;font-size:0.85rem;">No image available</span>'));
+                }
+            });
+        });
+
+        marker.on('click', function () {
+            map.setView([s.lat, s.lng], Math.max(map.getZoom(), 14));
+        });
+
+        sightingMarkerMap[s.id] = marker;
+        sightingMarkersLayer.addLayer(marker);
+    });
+}
+
+function focusSightingOnMap(sighting) {
+    if (!sighting || sighting.lat == null || sighting.lng == null) return;
+    map.setView([sighting.lat, sighting.lng], Math.max(map.getZoom(), 14));
+    const marker = sightingMarkerMap[sighting.id];
+    if (marker) marker.openPopup();
+}
+
 function renderSightings(countyName, layer) {
     const list = document.getElementById('sightingsList');
     if (!list) return;
@@ -425,6 +499,7 @@ function renderSightings(countyName, layer) {
         selectedKingdom = null;
 
         if (sightings.length === 0) {
+            updateSightingMarkers([]);
             list.innerHTML = '';
             const li = document.createElement('li');
             li.className = 'noSightings';
@@ -475,7 +550,7 @@ function renderSightings(countyName, layer) {
             controlsDiv.innerHTML = filterHTML;
         }
 
-        // Render the first page
+        updateSightingMarkers(getFilteredSightings());
         renderPage();
     }).catch(error => {
         console.error('Error in renderSightings:', error);
@@ -485,6 +560,8 @@ function renderSightings(countyName, layer) {
 
 // Render current page with current filters applied
 function renderPage() {
+    updateSightingMarkers(getFilteredSightings());
+
     const list = document.getElementById('sightingsList');
     if (!list) return;
 
@@ -516,7 +593,7 @@ function renderPage() {
     // Render items for current page
     pageItems.forEach((s, index) => {
         const li = document.createElement('li');
-        li.className = 'sightingItem';
+        li.className = 'sightingItem' + (s.lat != null && s.lng != null ? ' sightingItem-clickable' : '');
 
         const note = s.recordedBy ? ` (recorded by ${s.recordedBy})` : '';
         const textContent = `<strong>${s.species}</strong> — ${s.date}${note}`;
@@ -528,6 +605,12 @@ function renderPage() {
                 <div class="sightingImage" id="img-${s.id}"><div class="imageLoading">Loading...</div></div>
             </div>
         `;
+        if (s.lat != null && s.lng != null) {
+            li.addEventListener('click', function (e) {
+                if (e.target.closest('.sightingImage img')) return;
+                focusSightingOnMap(s);
+            });
+        }
         list.appendChild(li);
 
         // Fetch image asynchronously - pass species for fallback
@@ -629,6 +712,9 @@ function clearSelection() {
     if (clearBtn) clearBtn.style.display = 'none';
     if (list) list.innerHTML = '';
     if (controlsDiv) controlsDiv.innerHTML = '<p class="hint">Sightings (placeholder). Filters and controls will appear here.</p>';
+
+    if (sightingMarkersLayer) sightingMarkersLayer.clearLayers();
+    Object.keys(sightingMarkerMap).forEach(k => delete sightingMarkerMap[k]);
 
     // Reset pagination state
     currentSightings = [];
