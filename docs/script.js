@@ -360,9 +360,9 @@ function setHighlightedLayer(layer, countyName) {
 }
 
 // --- GBIF API Integration ---
-function fetchGBIFData(bounds, limit = 500) {
+function fetchGBIFData(bounds, limit = 300, maxTotal = 600) {
     // GBIF API documentation: https://www.gbif.org/developer/occurrence
-    // Get bounding box from Leaflet bounds
+    // GBIF max limit per request is 300, use pagination to fetch all results up to maxTotal
     const minLat = bounds.getSouthWest().lat;
     const minLng = bounds.getSouthWest().lng;
     const maxLat = bounds.getNorthEast().lat;
@@ -371,60 +371,88 @@ function fetchGBIFData(bounds, limit = 500) {
     // Build GBIF occurrence search URL using WKT geometry format (more reliable)
     // WKT format: POLYGON((longitude latitude, ...))
     const polygon = `POLYGON((${minLng} ${minLat}, ${maxLng} ${minLat}, ${maxLng} ${maxLat}, ${minLng} ${maxLat}, ${minLng} ${minLat}))`;
-    const url = `https://api.gbif.org/v1/occurrence/search?geometry=${encodeURIComponent(polygon)}&limit=${limit}&offset=0&hasGeometry=true`;
-
-    console.log('Fetching from GBIF with bounds:', { minLat, minLng, maxLat, maxLng });
-    console.log('GBIF URL (decoded):', url.replace(encodeURIComponent(polygon), 'POLYGON(...)'));
-
-    return fetch(url)
-        .then(response => {
-            console.log('GBIF response status:', response.status);
-            if (!response.ok) {
-                throw new Error(`GBIF API returned status ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('GBIF data received:', data);
-            if (!data.results || data.results.length === 0) {
-                console.warn('No occurrences found for bounds:', bounds);
-                console.warn('Response meta:', data.count, data.limit, data.offset);
-                return [];
-            }
-            console.log(`Found ${data.results.length} occurrences out of ${data.count} total`);
-            // transform GBIF results to our sighting format
-            return data.results.map(r => {
-                const kingdom = r.kingdom || '';
-                let type = 'Other';
-                if (kingdom.toLowerCase() === 'animalia') {
-                    type = 'Fauna';
-                } else if (kingdom.toLowerCase() === 'plantae') {
-                    type = 'Flora';
-                } else if (kingdom.toLowerCase() === 'fungi') {
-                    type = 'Fungi';
+    
+    // Fetch all results with pagination (up to maxTotal)
+    const fetchPage = (offset = 0, allResults = []) => {
+        const url = `https://api.gbif.org/v1/occurrence/search?geometry=${encodeURIComponent(polygon)}&limit=${limit}&offset=${offset}&hasGeometry=true`;
+        
+        console.log(`Fetching GBIF page: offset=${offset}, limit=${limit}, collected=${allResults.length}/${maxTotal}`);
+        
+        return fetch(url)
+            .then(response => {
+                console.log('GBIF response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`GBIF API returned status ${response.status}`);
                 }
+                return response.json();
+            })
+            .then(data => {
+                console.log('GBIF data received:', data);
+                if (!data.results || data.results.length === 0) {
+                    if (offset === 0) {
+                        console.warn('No occurrences found for bounds:', bounds);
+                        console.warn('Response meta:', data.count, data.limit, data.offset);
+                    }
+                    return allResults;
+                }
+                
+                console.log(`Fetched ${data.results.length} occurrences (offset: ${offset}, total available: ${data.count})`);
+                
+                // Add to results
+                const pageResults = data.results.map(r => {
+                    const kingdom = r.kingdom || '';
+                    let type = 'Other';
+                    if (kingdom.toLowerCase() === 'animalia') {
+                        type = 'Fauna';
+                    } else if (kingdom.toLowerCase() === 'plantae') {
+                        type = 'Flora';
+                    } else if (kingdom.toLowerCase() === 'fungi') {
+                        type = 'Fungi';
+                    }
 
-                return {
-                    id: r.key,
-                    species: r.species || r.scientificName || 'Unknown',
-                    date: r.eventDate ? r.eventDate.split('T')[0] : r.year ? `${r.year}-01-01` : 'Unknown',
-                    year: r.year || (r.eventDate ? parseInt(r.eventDate.split('-')[0]) : null),
-                    taxonRank: r.taxonRank || '',
-                    kingdom: kingdom,
-                    type: type,  // 'Fauna', 'Flora', 'Fungi', 'Other'
-                    recordedBy: r.recordedBy || '',
-                    lat: r.decimalLatitude,
-                    lng: r.decimalLongitude,
-                    mediaCount: r.mediaCount || 0,
-                    mediaItems: r.media || []  // may include media URLs
-                };
+                    return {
+                        id: r.key,
+                        species: r.species || r.scientificName || 'Unknown',
+                        date: r.eventDate ? r.eventDate.split('T')[0] : r.year ? `${r.year}-01-01` : 'Unknown',
+                        year: r.year || (r.eventDate ? parseInt(r.eventDate.split('-')[0]) : null),
+                        taxonRank: r.taxonRank || '',
+                        kingdom: kingdom,
+                        type: type,
+                        recordedBy: r.recordedBy || '',
+                        lat: r.decimalLatitude,
+                        lng: r.decimalLongitude,
+                        mediaCount: r.mediaCount || 0,
+                        mediaItems: r.media || []
+                    };
+                });
+                
+                allResults = allResults.concat(pageResults);
+                
+                // Stop if we've reached maxTotal or no more results
+                if (allResults.length >= maxTotal) {
+                    console.log(`✓ Fetched ${allResults.length} occurrences (limit reached: ${maxTotal})`);
+                    return allResults.slice(0, maxTotal);
+                }
+                
+                // Check if there are more results to fetch
+                const nextOffset = offset + limit;
+                if (nextOffset < data.count) {
+                    console.log(`More results available: ${nextOffset}/${data.count}, fetching next page...`);
+                    // Fetch next page recursively
+                    return fetchPage(nextOffset, allResults);
+                }
+                
+                console.log(`✓ Fetched all ${allResults.length} occurrences`);
+                return allResults;
+            })
+            .catch(error => {
+                console.error('Error fetching GBIF data:', error);
+                console.error('Error details:', error.message, error.stack);
+                return allResults;
             });
-        })
-        .catch(error => {
-            console.error('Error fetching GBIF data:', error);
-            console.error('Error details:', error.message, error.stack);
-            return [];
-        });
+    };
+    
+    return fetchPage();
 }
 
 // Fetch media (images) for a specific occurrence from GBIF
