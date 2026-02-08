@@ -1089,7 +1089,7 @@ function sendImageToBackend(imageData, fileName) {
     formData.append('image', blob, fileName);
 
     // Get backend URL (defaults to localhost:5000, change as needed)
-    const backendUrl = 'http://localhost:5000/predict';
+    const backendUrl = 'https://nonenvious-kirsten-unprefixally.ngrok-free.dev/predict';
 
     fetch(backendUrl, {
         method: 'POST',
