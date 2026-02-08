@@ -5,6 +5,13 @@ let highlightedLayer = null;
 const countyData = {};
 let countyBounds = {}; // store bounds keyed by county name
 
+// Pagination and filtering state
+let currentSightings = [];
+let currentPage = 1;
+const itemsPerPage = 10;
+let selectedYear = null; // null means show all years
+let selectedKingdom = null; // null means show all (fauna and flora)
+
 document.addEventListener('DOMContentLoaded', function () {
     // Initialize the map
     initializeMap();
@@ -26,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Setup modal close handlers
     const modal = document.getElementById('imageModal');
-    const closeBtn = document.querySelector('.modalClose');
+    const closeBtn = document.querySelector('.modal-close');
 
     if (closeBtn) {
         closeBtn.addEventListener('click', closeImageModal);
@@ -39,11 +46,51 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // Setup image upload functionality
+    const fileInput = document.getElementById('speciesImageInput');
+    const uploadArea = document.querySelector('.upload-area');
+    const uploadLabel = document.querySelector('.upload-label');
+    const identifyResults = document.getElementById('identifyResults');
+
+    if (fileInput) {
+        // Click to upload
+        fileInput.addEventListener('change', function (e) {
+            handleImageUpload(e.target.files[0]);
+        });
+
+        // Drag and drop
+        if (uploadArea) {
+            uploadArea.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+                if (uploadLabel) uploadLabel.style.opacity = '0.7';
+            });
+
+            uploadArea.addEventListener('dragleave', function (e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                if (uploadLabel) uploadLabel.style.opacity = '1';
+            });
+
+            uploadArea.addEventListener('drop', function (e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                if (uploadLabel) uploadLabel.style.opacity = '1';
+
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleImageUpload(files[0]);
+                }
+            });
+        }
+    }
 });
 
 function initializeMap() {
-    // Create map centered on continental US
-    map = L.map('map').setView([39.8283, -98.5795], 4);
+    // Create map centered on Wisconsin
+    console.log('Initializing map...');
+    map = L.map('map').setView([44.2685, -89.6165], 7);
 
     // Add OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -51,6 +98,7 @@ function initializeMap() {
         maxZoom: 19
     }).addTo(map);
 
+    console.log('Map initialized');
     // Load US counties GeoJSON
     loadCounties();
 }
@@ -59,14 +107,13 @@ function initializeMap() {
 function openImageModal(imageUrl, caption) {
     const modal = document.getElementById('imageModal');
     const modalImage = document.getElementById('modalImage');
-    const modalCaption = document.getElementById('modalCaption');
 
     if (modal && modalImage) {
         modalImage.src = imageUrl;
-        if (modalCaption) {
-            modalCaption.textContent = caption || 'Wildlife Sighting';
-        }
         modal.classList.add('show');
+        console.log('Opened image modal for:', caption);
+    } else {
+        console.error('Modal elements not found in DOM');
     }
 }
 
@@ -80,9 +127,11 @@ function closeImageModal() {
 function loadCounties() {
     // Using Plotly's GeoJSON of all US counties but filter to Wisconsin (state FIPS = '55')
     const WI_FIPS = '55';
+    console.log('Loading counties from Plotly GeoJSON...');
     fetch('https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json')
         .then(response => response.json())
         .then(data => {
+            console.log('GeoJSON loaded, total features:', data.features.length);
             // filter features for Wisconsin only
             const wiFeatures = (data.features || []).filter(f => {
                 // feature id is the county FIPS (string or number). Normalize to string.
@@ -90,6 +139,7 @@ function loadCounties() {
                 return id.startsWith(WI_FIPS);
             });
 
+            console.log('Wisconsin counties found:', wiFeatures.length);
             const wiGeo = Object.assign({}, data, { features: wiFeatures });
 
             const countiesLayer = L.geoJSON(wiGeo, {
@@ -127,11 +177,18 @@ function onCountyFeature(feature, layer) {
     // store the default style so we can reset later
     layer.defaultStyle = getCountyStyle(feature);
 
-    // store bounds for GBIF queries later
+    // store bounds - try to get them immediately and on add
+    const bounds = layer.getBounds();
+    if (bounds && bounds.isValid()) {
+        countyBounds[countyName] = bounds;
+    }
+
     layer.on('add', function () {
-        const bounds = layer.getBounds();
-        if (bounds && bounds.isValid()) {
-            countyBounds[countyName] = bounds;
+        if (!countyBounds[countyName]) {
+            const bounds = layer.getBounds();
+            if (bounds && bounds.isValid()) {
+                countyBounds[countyName] = bounds;
+            }
         }
     });
 
@@ -183,7 +240,7 @@ function setHighlightedLayer(layer, countyName) {
     });
     // update info panel (populate skeleton elements)
     const countyNameEl = document.getElementById('countyName');
-    const clearBtn = document.getElementById('clearSelection');
+    const clearBtn = document.getElementById('clearBtn');
     if (countyNameEl) countyNameEl.textContent = countyName;
     if (clearBtn) {
         clearBtn.style.display = 'inline-block';
@@ -195,40 +252,69 @@ function setHighlightedLayer(layer, countyName) {
 }
 
 // --- GBIF API Integration ---
-function fetchGBIFData(bounds, limit = 50) {
+function fetchGBIFData(bounds, limit = 500) {
     // GBIF API documentation: https://www.gbif.org/developer/occurrence
-    // We'll search in Wisconsin within the county bounds
+    // Get bounding box from Leaflet bounds
     const minLat = bounds.getSouthWest().lat;
     const minLng = bounds.getSouthWest().lng;
     const maxLat = bounds.getNorthEast().lat;
     const maxLng = bounds.getNorthEast().lng;
 
-    // Build GBIF occurrence search URL with geometry bounding box - include offset to get varied results
-    const url = `https://api.gbif.org/v1/occurrence/search?geometry=POLYGON((${minLng} ${minLat}, ${maxLng} ${minLat}, ${maxLng} ${maxLat}, ${minLng} ${maxLat}, ${minLng} ${minLat}))&stateProvince=Wisconsin&limit=${limit}&offset=0&hasGeometry=true`;
+    // Build GBIF occurrence search URL using WKT geometry format (more reliable)
+    // WKT format: POLYGON((longitude latitude, ...))
+    const polygon = `POLYGON((${minLng} ${minLat}, ${maxLng} ${minLat}, ${maxLng} ${maxLat}, ${minLng} ${maxLat}, ${minLng} ${minLat}))`;
+    const url = `https://api.gbif.org/v1/occurrence/search?geometry=${encodeURIComponent(polygon)}&limit=${limit}&offset=0&hasGeometry=true`;
+
+    console.log('Fetching from GBIF with bounds:', { minLat, minLng, maxLat, maxLng });
+    console.log('GBIF URL (decoded):', url.replace(encodeURIComponent(polygon), 'POLYGON(...)'));
 
     return fetch(url)
-        .then(response => response.json())
+        .then(response => {
+            console.log('GBIF response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`GBIF API returned status ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('GBIF data received:', data);
             if (!data.results || data.results.length === 0) {
-                console.log('No occurrences found');
+                console.warn('No occurrences found for bounds:', bounds);
+                console.warn('Response meta:', data.count, data.limit, data.offset);
                 return [];
             }
-            console.log(`Found ${data.results.length} occurrences`);
+            console.log(`Found ${data.results.length} occurrences out of ${data.count} total`);
             // transform GBIF results to our sighting format
-            return data.results.map(r => ({
-                id: r.key,
-                species: r.species || r.scientificName || 'Unknown',
-                date: r.eventDate ? r.eventDate.split('T')[0] : r.year ? `${r.year}-01-01` : 'Unknown',
-                taxonRank: r.taxonRank || '',
-                recordedBy: r.recordedBy || '',
-                lat: r.decimalLatitude,
-                lng: r.decimalLongitude,
-                mediaCount: r.mediaCount || 0,
-                mediaItems: r.media || []  // may include media URLs
-            }));
+            return data.results.map(r => {
+                const kingdom = r.kingdom || '';
+                let type = 'Other';
+                if (kingdom.toLowerCase() === 'animalia') {
+                    type = 'Fauna';
+                } else if (kingdom.toLowerCase() === 'plantae') {
+                    type = 'Flora';
+                } else if (kingdom.toLowerCase() === 'fungi') {
+                    type = 'Fungi';
+                }
+
+                return {
+                    id: r.key,
+                    species: r.species || r.scientificName || 'Unknown',
+                    date: r.eventDate ? r.eventDate.split('T')[0] : r.year ? `${r.year}-01-01` : 'Unknown',
+                    year: r.year || (r.eventDate ? parseInt(r.eventDate.split('-')[0]) : null),
+                    taxonRank: r.taxonRank || '',
+                    kingdom: kingdom,
+                    type: type,  // 'Fauna', 'Flora', 'Fungi', 'Other'
+                    recordedBy: r.recordedBy || '',
+                    lat: r.decimalLatitude,
+                    lng: r.decimalLongitude,
+                    mediaCount: r.mediaCount || 0,
+                    mediaItems: r.media || []  // may include media URLs
+                };
+            });
         })
         .catch(error => {
             console.error('Error fetching GBIF data:', error);
+            console.error('Error details:', error.message, error.stack);
             return [];
         });
 }
@@ -301,21 +387,45 @@ function renderSightings(countyName, layer) {
     const list = document.getElementById('sightingsList');
     if (!list) return;
 
-    // clear and show loading
-    list.innerHTML = '<li class="noSightings">Loading sightings...</li>';
+    // clear and show loading with progress info
+    list.innerHTML = '<li class="noSightings">Loading sightings from GBIF database...</li>';
 
-    // get bounds from stored county bounds
-    const bounds = countyBounds[countyName];
+    // get bounds from stored county bounds, or try to get from layer
+    let bounds = countyBounds[countyName];
     if (!bounds || !bounds.isValid()) {
-        list.innerHTML = '<li class="noSightings">Error: unable to determine county bounds.</li>';
-        return;
+        // Try to get bounds directly from the layer
+        try {
+            bounds = layer.getBounds();
+            if (bounds && bounds.isValid()) {
+                countyBounds[countyName] = bounds;
+            } else {
+                list.innerHTML = '<li class="noSightings">Error: unable to determine county bounds.</li>';
+                console.error('Invalid bounds for county:', countyName, bounds);
+                return;
+            }
+        } catch (e) {
+            list.innerHTML = '<li class="noSightings">Error: unable to determine county bounds.</li>';
+            console.error('Error getting bounds:', e);
+            return;
+        }
     }
 
-    // fetch GBIF data
-    fetchGBIFData(bounds).then(sightings => {
-        list.innerHTML = '';
+    console.log('Rendering sightings for county:', countyName, 'with bounds:', bounds);
+
+    // Set a reasonable timeout for the API call
+    const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('GBIF API request timeout after 15 seconds')), 15000)
+    );
+
+    // fetch GBIF data with timeout
+    Promise.race([fetchGBIFData(bounds), timeoutPromise]).then(sightings => {
+        currentSightings = sightings;
+        currentPage = 1;
+        selectedYear = null;
+        selectedKingdom = null;
 
         if (sightings.length === 0) {
+            list.innerHTML = '';
             const li = document.createElement('li');
             li.className = 'noSightings';
             li.textContent = 'No sightings found for this county.';
@@ -323,55 +433,186 @@ function renderSightings(countyName, layer) {
             return;
         }
 
-        // display up to 20 most recent with images
-        const displayCount = Math.min(20, sightings.length);
-        let imagesLoaded = 0;
+        // Extract unique years for filtering (all available from GBIF data)
+        const years = [...new Set(sightings.map(s => s.year).filter(Boolean))].sort((a, b) => b - a);
+        const yearRange = years.length > 0 ? `${Math.max(...years)} - ${Math.min(...years)}` : 'N/A';
 
-        sightings.slice(0, displayCount).forEach((s, index) => {
-            const li = document.createElement('li');
-            li.className = 'sightingItem';
-
-            const note = s.recordedBy ? ` (recorded by ${s.recordedBy})` : '';
-            const textContent = `<strong>${s.species}</strong> — ${s.date}${note}`;
-
-            // Create container with text on left
-            li.innerHTML = `
-                <div class="sightingContent">
-                    <div class="sightingText">${textContent}</div>
-                    <div class="sightingImage" id="img-${s.id}"><div class="imageLoading">Loading...</div></div>
-                </div>
-            `;
-            list.appendChild(li);
-
-            // Fetch image asynchronously - pass species for fallback
-            fetchOccurrenceMedia(s.id, s.species, s.mediaItems).then(imageUrl => {
-                const imgContainer = document.getElementById(`img-${s.id}`);
-                if (imgContainer) {
-                    if (imageUrl) {
-                        // Try loading with CORS handling
-                        imgContainer.innerHTML = `<img src="${imageUrl}" alt="${s.species}" class="sightingThumbnail" crossorigin="anonymous" onerror="this.parentElement.innerHTML='<div class=imageError>No image</div>'">`;
-
-                        // Add click handler to image to expand it
-                        const img = imgContainer.querySelector('img');
-                        if (img) {
-                            img.addEventListener('click', function () {
-                                openImageModal(imageUrl, s.species);
-                            });
-                        }
-                    } else {
-                        imgContainer.innerHTML = '<div class="imageNotFound">No image available</div>';
-                    }
-                }
-            });
+        // Extract unique types (Fauna, Flora, etc.) for filtering
+        const types = [...new Set(sightings.map(s => s.type).filter(Boolean))].sort();
+        const typeCounts = {};
+        types.forEach(type => {
+            typeCounts[type] = sightings.filter(s => s.type === type).length;
         });
 
-        if (sightings.length > 20) {
-            const li = document.createElement('li');
-            li.className = 'noSightings';
-            li.textContent = `... and ${sightings.length - 20} more sightings`;
-            list.appendChild(li);
+        // Update sightings controls with both filters
+        const controlsDiv = document.getElementById('sightingsControls');
+        if (controlsDiv) {
+            let filterHTML = `<div class="sightingsFilterGroup">
+                <div class="filterRow">
+                    <div class="filterItem">
+                        <label for="typeFilter">Filter by Type:</label>
+                        <select id="typeFilter" onchange="filterByType(this.value)">
+                            <option value="" selected>All Types (${sightings.length})</option>`;
+            types.forEach(type => {
+                filterHTML += `<option value="${type}">${type} (${typeCounts[type]})</option>`;
+            });
+            filterHTML += `</select>
+                    </div>
+                    <div class="filterItem">
+                        <label for="yearFilter">Filter by Year (<span class="yearRangeLabel">${yearRange}</span>):</label>
+                        <select id="yearFilter" onchange="filterByYear(this.value)">
+                            <option value="" selected>All Years (${sightings.length})</option>`;
+            years.forEach(year => {
+                const yearCount = sightings.filter(s => s.year === year).length;
+                filterHTML += `<option value="${year}">${year} (${yearCount})</option>`;
+            });
+            filterHTML += `</select>
+                    </div>
+                </div>
+                <button class="clearFilterBtn" onclick="clearAllFilters()">Clear All Filters</button>
+                <span class="sightingCount">Total: ${sightings.length} sightings</span>
+            </div>`;
+            controlsDiv.innerHTML = filterHTML;
         }
+
+        // Render the first page
+        renderPage();
+    }).catch(error => {
+        console.error('Error in renderSightings:', error);
+        list.innerHTML = '<li class="noSightings">Unable to load sightings. ' + error.message + ' Please try another county or check your connection.</li>';
     });
+}
+
+// Render current page with current filters applied
+function renderPage() {
+    const list = document.getElementById('sightingsList');
+    if (!list) return;
+
+    list.innerHTML = '';
+
+    // Filter sightings by selected year and type
+    let filteredSightings = currentSightings;
+    if (selectedYear) {
+        filteredSightings = filteredSightings.filter(s => s.year === selectedYear);
+    }
+    if (selectedKingdom) {
+        filteredSightings = filteredSightings.filter(s => s.type === selectedKingdom);
+    }
+
+    if (filteredSightings.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'noSightings';
+        li.textContent = selectedYear ? `No sightings found for ${selectedYear}.` : 'No sightings found.';
+        list.appendChild(li);
+        return;
+    }
+
+    // Calculate pagination
+    const totalPages = Math.ceil(filteredSightings.length / itemsPerPage);
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    const endIdx = startIdx + itemsPerPage;
+    const pageItems = filteredSightings.slice(startIdx, endIdx);
+
+    // Render items for current page
+    pageItems.forEach((s, index) => {
+        const li = document.createElement('li');
+        li.className = 'sightingItem';
+
+        const note = s.recordedBy ? ` (recorded by ${s.recordedBy})` : '';
+        const textContent = `<strong>${s.species}</strong> — ${s.date}${note}`;
+
+        // Create container with text on left
+        li.innerHTML = `
+            <div class="sightingContent">
+                <div class="sightingText">${textContent}</div>
+                <div class="sightingImage" id="img-${s.id}"><div class="imageLoading">Loading...</div></div>
+            </div>
+        `;
+        list.appendChild(li);
+
+        // Fetch image asynchronously - pass species for fallback
+        fetchOccurrenceMedia(s.id, s.species, s.mediaItems).then(imageUrl => {
+            const imgContainer = document.getElementById(`img-${s.id}`);
+            if (imgContainer) {
+                if (imageUrl) {
+                    // Try loading with CORS handling
+                    imgContainer.innerHTML = `<img src="${imageUrl}" alt="${s.species}" class="sightingThumbnail" crossorigin="anonymous" onerror="this.parentElement.innerHTML='<div class=imageError>No image</div>'">`;
+
+                    // Add click handler to image to expand it
+                    const img = imgContainer.querySelector('img');
+                    if (img) {
+                        img.addEventListener('click', function () {
+                            openImageModal(imageUrl, s.species);
+                        });
+                    }
+                } else {
+                    imgContainer.innerHTML = '<div class="imageNotFound">No image available</div>';
+                }
+            }
+        });
+    });
+
+    // Add pagination controls
+    if (totalPages > 1) {
+        const paginationDiv = document.createElement('div');
+        paginationDiv.className = 'pagination';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = 'Previous';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => previousPage();
+
+        const pageInfo = document.createElement('span');
+        pageInfo.className = 'pageInfo';
+        pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Next';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.onclick = () => nextPage();
+
+        paginationDiv.appendChild(prevBtn);
+        paginationDiv.appendChild(pageInfo);
+        paginationDiv.appendChild(nextBtn);
+
+        list.appendChild(paginationDiv);
+    }
+}
+
+// Pagination functions
+function nextPage() {
+    const filteredSightings = selectedYear ? currentSightings.filter(s => s.year === selectedYear) : currentSightings;
+    const totalPages = Math.ceil(filteredSightings.length / itemsPerPage);
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderPage();
+    }
+}
+
+function previousPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        renderPage();
+    }
+}
+
+function filterByYear(year) {
+    selectedYear = year ? parseInt(year) : null;
+    currentPage = 1;
+    renderPage();
+}
+
+function filterByType(type) {
+    selectedKingdom = type ? type : null;
+    currentPage = 1;
+    renderPage();
+}
+
+function clearAllFilters() {
+    selectedYear = null;
+    selectedKingdom = null;
+    currentPage = 1;
+    renderPage();
 }
 
 function clearSelection() {
@@ -380,9 +621,171 @@ function clearSelection() {
         highlightedLayer = null;
     }
     const countyNameEl = document.getElementById('countyName');
-    const clearBtn = document.getElementById('clearSelection');
+    const clearBtn = document.getElementById('clearBtn');
     const list = document.getElementById('sightingsList');
-    if (countyNameEl) countyNameEl.textContent = 'No county selected';
+    const controlsDiv = document.getElementById('sightingsControls');
+
+    if (countyNameEl) countyNameEl.textContent = 'Select a County';
     if (clearBtn) clearBtn.style.display = 'none';
     if (list) list.innerHTML = '';
+    if (controlsDiv) controlsDiv.innerHTML = '<p class="hint">Sightings (placeholder). Filters and controls will appear here.</p>';
+
+    // Reset pagination state
+    currentSightings = [];
+    currentPage = 1;
+    selectedYear = null;
+    selectedKingdom = null;
+}
+
+// --- SPECIES IDENTIFICATION ---
+
+function handleImageUpload(file) {
+    if (!file) return;
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+        showIdentifyError('Please upload an image file');
+        return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+        showIdentifyError('Image must be less than 5MB');
+        return;
+    }
+
+    // Show loading state
+    showIdentifyLoading();
+
+    // Read and display the image
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const imageData = e.target.result;
+
+        // Display uploaded image in results area
+        setTimeout(() => {
+            displayUploadedImage(imageData);
+            // Here you would call your backend API to analyze the image
+            // For now, we'll show a placeholder for the species identification
+            sendImageToBackend(imageData, file.name);
+        }, 500);
+    };
+    reader.readAsDataURL(file);
+}
+
+function displayUploadedImage(imageSrc) {
+    const identifyResults = document.getElementById('identifyResults');
+    identifyResults.innerHTML = `
+        <div class="results-content">
+            <img src="${imageSrc}" alt="Uploaded species image" class="results-image" />
+            <div style="width: 100%;">
+                <div class="loading-spinner"></div>
+                <p class="loading-text">Analyzing image...</p>
+            </div>
+        </div>
+    `;
+}
+
+function showIdentifyLoading() {
+    const identifyResults = document.getElementById('identifyResults');
+    identifyResults.innerHTML = `
+        <div style="text-align: center;">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Processing image...</p>
+        </div>
+    `;
+}
+
+function showIdentifyError(message) {
+    const identifyResults = document.getElementById('identifyResults');
+    identifyResults.innerHTML = `
+        <div class="error-message">
+            <strong>Error:</strong> ${message}
+        </div>
+        <p class="results-placeholder">Try uploading another image</p>
+    `;
+}
+
+function displayIdentificationResults(results) {
+    const identifyResults = document.getElementById('identifyResults');
+
+    if (!results || results.error) {
+        showIdentifyError(results?.message || 'Failed to identify species');
+        return;
+    }
+
+    const resultsHTML = `
+        <div class="results-content">
+            <img src="${results.imageUrl || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='}" alt="Species image" class="results-image" />
+            <div class="results-info">
+                <h3>${results.species || 'Unknown Species'}</h3>
+                <div class="result-item">
+                    <span class="result-label">Scientific Name:</span>
+                    <span class="result-value">${results.scientificName || 'N/A'}</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Kingdom:</span>
+                    <span class="result-value">${results.kingdom || 'N/A'}</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Confidence:</span>
+                    <span class="result-value">${results.confidence ? (Math.round(results.confidence * 100)) + '%' : 'N/A'}</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Type:</span>
+                    <span class="result-value">${results.type || 'N/A'}</span>
+                </div>
+                ${results.description ? `
+                <div class="result-item">
+                    <span class="result-label">Description:</span>
+                </div>
+                <p style="color: #2c3e50; font-size: 0.9rem; margin: 0.75rem 0;">${results.description}</p>
+                ` : ''}
+            </div>
+        </div>
+    `;
+
+    identifyResults.innerHTML = resultsHTML;
+}
+
+function sendImageToBackend(imageData, fileName) {
+    // TODO: Replace with your actual backend endpoint
+    const backendUrl = '/api/identify-species'; // Update this with your actual endpoint
+
+    // For now, simulate a backend response after 2 seconds
+    setTimeout(() => {
+        showMockIdentificationResults();
+    }, 2000);
+
+    /* Uncomment and modify when you have a real backend:
+    const formData = new FormData();
+    formData.append('image', imageData);
+    formData.append('fileName', fileName);
+
+    fetch(backendUrl, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(results => {
+        displayIdentificationResults(results);
+    })
+    .catch(error => {
+        console.error('Error sending image to backend:', error);
+        showIdentifyError('Failed to process image. Please try again.');
+    });
+    */
+}
+
+function showMockIdentificationResults() {
+    // Mock results for demonstration
+    const mockResults = {
+        species: 'American Robin',
+        scientificName: 'Turdus migratorius',
+        kingdom: 'Animalia',
+        type: 'Fauna',
+        confidence: 0.92,
+        description: 'A common songbird found throughout North America. Characterized by its orange-red breast and grayish-brown back. Often seen hopping on the ground searching for food.',
+        imageUrl: null
+    };
+    displayIdentificationResults(mockResults);
 }
