@@ -727,6 +727,137 @@ nav a:hover {
     font-weight: 500;
 }
 
+.results-header {
+    text-align: center;
+    width: 100%;
+}
+
+.results-header h3 {
+    color: #2d5016;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.confidence-score {
+    display: inline-block;
+    background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.method-badge {
+    display: inline-block;
+    background: #e0f7e0;
+    color: #2d5016;
+    padding: 0.4rem 0.8rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid #c8e6c9;
+}
+
+.details-section {
+    width: 100%;
+    background: #f5f5f5;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 0.5rem;
+}
+
+.details-section h4 {
+    color: #2d5016;
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 2px solid #c8e6c9;
+    padding-bottom: 0.5rem;
+}
+
+.alternatives-list,
+.objects-list,
+.colors-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.alternative-item,
+.object-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0.8rem;
+    background: white;
+    border-radius: 6px;
+    border-left: 3px solid #81c784;
+}
+
+.alternative-item span:first-child,
+.object-item span:first-child {
+    flex: 1;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.confidence-badge {
+    background: #e8f5e9;
+    color: #2d5016;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.color-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 0.8rem;
+    background: white;
+    border-radius: 6px;
+}
+
+.color-box {
+    width: 50px;
+    height: 50px;
+    border-radius: 6px;
+    border: 2px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.color-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.color-info span {
+    font-size: 0.9rem;
+}
+
+.color-info span:first-child {
+    font-weight: 600;
+    color: #2c3e50;
+    font-family: 'Courier New', monospace;
+}
+
+.color-percentage {
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.detected-text {
+    background: white;
+    padding: 0.8rem;
+    border-radius: 6px;
+    font-style: italic;
+    color: #2c3e50;
+    border-left: 3px solid #81c784;
+    margin: 0;
+}
+
 .loading-spinner {
     display: inline-block;
     width: 40px;

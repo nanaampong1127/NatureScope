@@ -795,38 +795,104 @@ function displayIdentificationResults(results) {
     const identifyResults = document.getElementById('identifyResults');
 
     if (!results || results.error) {
-        showIdentifyError(results?.message || 'Failed to identify species');
+        showIdentifyError(results?.error || 'Failed to identify species');
         return;
+    }
+
+    // Handle label being null
+    const species = results.label || 'Unknown Species';
+    const confidence = results.confidence ? (Math.round(results.confidence * 100)) + '%' : 'N/A';
+    const source = results.source || 'unknown';
+
+    // Build alternative labels section if available
+    let alternativeLabelsHTML = '';
+    if (results.all_labels && results.all_labels.length > 1) {
+        alternativeLabelsHTML = `
+            <div class="details-section">
+                <h4>Alternative Classifications</h4>
+                <div class="alternatives-list">
+                    ${results.all_labels.slice(1, 5).map(label => `
+                        <div class="alternative-item">
+                            <span>${label.description}</span>
+                            <span class="confidence-badge">${Math.round(label.score * 100)}%</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // Build detected objects section if available
+    let objectsHTML = '';
+    if (results.additional_details && results.additional_details.detected_objects && results.additional_details.detected_objects.length > 0) {
+        objectsHTML = `
+            <div class="details-section">
+                <h4>Other Detected Objects</h4>
+                <div class="objects-list">
+                    ${results.additional_details.detected_objects.map(obj => `
+                        <div class="object-item">
+                            <span>${obj.name}</span>
+                            <span class="confidence-badge">${Math.round(obj.score * 100)}%</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // Build colors section if available
+    let colorsHTML = '';
+    if (results.additional_details && results.additional_details.dominant_colors && results.additional_details.dominant_colors.length > 0) {
+        colorsHTML = `
+            <div class="details-section">
+                <h4>Dominant Colors</h4>
+                <div class="colors-list">
+                    ${results.additional_details.dominant_colors.map(color => `
+                        <div class="color-item">
+                            <div class="color-box" style="background-color: ${color.hex};"></div>
+                            <div class="color-info">
+                                <span>${color.hex}</span>
+                                <span class="color-percentage">${Math.round(color.pixel_fraction * 100)}%</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // Build text detection section if available
+    let textHTML = '';
+    if (results.additional_details && results.additional_details.detected_text) {
+        textHTML = `
+            <div class="details-section">
+                <h4>Text Detected in Image</h4>
+                <p class="detected-text">"${results.additional_details.detected_text}"</p>
+            </div>
+        `;
     }
 
     const resultsHTML = `
         <div class="results-content">
-            <img src="${results.imageUrl || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='}" alt="Species image" class="results-image" />
-            <div class="results-info">
-                <h3>${results.species || 'Unknown Species'}</h3>
-                <div class="result-item">
-                    <span class="result-label">Scientific Name:</span>
-                    <span class="result-value">${results.scientificName || 'N/A'}</span>
-                </div>
-                <div class="result-item">
-                    <span class="result-label">Kingdom:</span>
-                    <span class="result-value">${results.kingdom || 'N/A'}</span>
-                </div>
+            <div class="results-header">
+                <h3>${species}</h3>
                 <div class="result-item">
                     <span class="result-label">Confidence:</span>
-                    <span class="result-value">${results.confidence ? (Math.round(results.confidence * 100)) + '%' : 'N/A'}</span>
+                    <span class="result-value confidence-score">${confidence}</span>
                 </div>
-                <div class="result-item">
-                    <span class="result-label">Type:</span>
-                    <span class="result-value">${results.type || 'N/A'}</span>
-                </div>
-                ${results.description ? `
-                <div class="result-item">
-                    <span class="result-label">Description:</span>
-                </div>
-                <p style="color: #2c3e50; font-size: 0.9rem; margin: 0.75rem 0;">${results.description}</p>
-                ` : ''}
             </div>
+
+            <div class="results-info">
+                <div class="result-item">
+                    <span class="result-label">Detection Method:</span>
+                    <span class="result-value method-badge">${source}</span>
+                </div>
+            </div>
+
+            ${alternativeLabelsHTML}
+            ${objectsHTML}
+            ${colorsHTML}
+            ${textHTML}
         </div>
     `;
 
@@ -834,44 +900,56 @@ function displayIdentificationResults(results) {
 }
 
 function sendImageToBackend(imageData, fileName) {
-    // TODO: Replace with your actual backend endpoint
-    const backendUrl = '/api/identify-species'; // Update this with your actual endpoint
+    // Convert data URL to Blob for FormData
+    const byteString = atob(imageData.split(',')[1]);
+    const mimeString = imageData.split(',')[0].match(/:(.*?);/)[1];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    const blob = new Blob([ab], { type: mimeString });
 
-    // For now, simulate a backend response after 2 seconds
-    setTimeout(() => {
-        showMockIdentificationResults();
-    }, 2000);
-
-    /* Uncomment and modify when you have a real backend:
+    // Prepare FormData
     const formData = new FormData();
-    formData.append('image', imageData);
-    formData.append('fileName', fileName);
+    formData.append('image', blob, fileName);
+
+    // Get backend URL (defaults to localhost:5000, change as needed)
+    const backendUrl = 'http://localhost:5000/predict';
 
     fetch(backendUrl, {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
-    .then(results => {
-        displayIdentificationResults(results);
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Backend error: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success && data.result) {
+            displayIdentificationResults(data.result);
+        } else {
+            showIdentifyError(data.result?.error || 'Classification failed');
+        }
     })
     .catch(error => {
         console.error('Error sending image to backend:', error);
-        showIdentifyError('Failed to process image. Please try again.');
+        showIdentifyError('Could not connect to classifier backend. Make sure it is running on http://localhost:5000');
     });
-    */
 }
 
-function showMockIdentificationResults() {
-    // Mock results for demonstration
-    const mockResults = {
-        species: 'American Robin',
-        scientificName: 'Turdus migratorius',
-        kingdom: 'Animalia',
-        type: 'Fauna',
-        confidence: 0.92,
-        description: 'A common songbird found throughout North America. Characterized by its orange-red breast and grayish-brown back. Often seen hopping on the ground searching for food.',
-        imageUrl: null
-    };
-    displayIdentificationResults(mockResults);
-}
+// Mock results function (kept for reference, no longer used)
+// function showMockIdentificationResults() {
+//     const mockResults = {
+//         species: 'American Robin',
+//         scientificName: 'Turdus migratorius',
+//         kingdom: 'Animalia',
+//         type: 'Fauna',
+//         confidence: 0.92,
+//         description: 'A common songbird found throughout North America.',
+//         imageUrl: null
+//     };
+//     displayIdentificationResults(mockResults);
+// }
