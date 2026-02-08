@@ -11,10 +11,15 @@
 
 <body>
     <header>
-        <h1>Welcome to NatureScope</h1>
+        <div class="header-container">
+            <div class="logo-section">
+                <h1>🦌 NatureScope</h1>
+                <p class="tagline">Explore Wisconsin's Wildlife Through Real Sightings</p>
+            </div>
+        </div>
         <nav>
             <ul>
-                <li><a href="#home">Home</a></li>
+                <li><a href="#home">Map</a></li>
                 <li><a href="#about">About</a></li>
                 <li><a href="#contact">Contact</a></li>
             </ul>
@@ -22,45 +27,97 @@
     </header>
 
     <main>
-        <section id="home">
-            <h2>Wildlife Sightings Map</h2>
-            <div id="map"></div>
-            <div id="countyInfo">
-                <div class="countyHeader">
-                    <h3 id="countyName">No county selected</h3>
-                    <button id="clearSelection" style="display:none">Clear</button>
+        <section id="hero" class="hero-section">
+            <div class="hero-content">
+                <h2>Discover Wildlife in Your Backyard</h2>
+                <p>Explore real biodiversity sightings across Wisconsin. Click any county to view thousands of
+                    documented wildlife observations from the Global Biodiversity Information Facility (GBIF).</p>
+                <div class="hero-features">
+                    <div class="feature">
+                        <span class="feature-icon">🗺️</span>
+                        <div class="feature-text">
+                            <strong>Interactive Map</strong>
+                            <p>Explore sightings by county</p>
+                        </div>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">📸</span>
+                        <div class="feature-text">
+                            <strong>Real Images</strong>
+                            <p>See actual photographs</p>
+                        </div>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-icon">🔍</span>
+                        <div class="feature-text">
+                            <strong>Smart Filters</strong>
+                            <p>Sort by year & species type</p>
+                        </div>
+                    </div>
                 </div>
-                <div id="sightingsControls">
-                    <p class="hint">Sightings (placeholder). Filters and controls will appear here.</p>
-                </div>
-                <ul id="sightingsList"></ul>
             </div>
         </section>
 
-        <section id="about">
-            <h2>About</h2>
-            <p>This is the about section of your website.</p>
-        </section>
-
-        <section id="contact">
-            <h2>Contact</h2>
-            <p>This is the contact section of your website.</p>
-            <button id="contactBtn">Click Me</button>
+        <section id="map-section" class="map-container">
+            <div id="map"></div>
+            <div id="countyInfo" class="county-info">
+                <div class="county-header">
+                    <span id="countyName" class="county-name">Select a County</span>
+                    <button id="clearBtn" class="btn-clear">Clear</button>
+                </div>
+                <div id="sightingsControls" class="sightings-controls"></div>
+                <ul id="sightingsList" class="sightings-list"></ul>
+            </div>
         </section>
     </main>
 
-    <footer>
-        <p>&copy; 2026 NatureScope. All rights reserved.</p>
-    </footer>
-
-    <!-- Image Modal/Lightbox -->
     <div id="imageModal" class="modal">
-        <span class="modalClose">&times;</span>
-        <div class="modalContent">
-            <img id="modalImage" src="" alt="Expanded view">
-            <p id="modalCaption"></p>
-        </div>
+        <span class="modal-close">&times;</span>
+        <img id="modalImage" src="" alt="Enlarged sighting image" />
     </div>
+
+    <section id="identify-section" class="identify-container">
+        <div class="identify-content">
+            <h2>Identify a Species</h2>
+            <p>Upload a photo and we'll analyze it to identify the wildlife species</p>
+
+            <div class="identify-layout">
+                <div class="upload-area">
+                    <div class="upload-input-wrapper">
+                        <label for="speciesImageInput" class="upload-label">
+                            <div class="upload-icon">📸</div>
+                            <div class="upload-text">
+                                <strong>Click to upload or drag & drop</strong>
+                                <p>PNG, JPG, or GIF (max 5MB)</p>
+                            </div>
+                        </label>
+                        <input type="file" id="speciesImageInput" class="file-input" accept="image/*" />
+                    </div>
+                </div>
+
+                <div class="results-area">
+                    <div id="identifyResults" class="identify-results">
+                        <p class="results-placeholder">Upload an image to see identification results</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <section id="about" class="footer-section">
+            <h3>About NatureScope</h3>
+            <p>NatureScope is an interactive exploration tool for Wisconsin's amazing biodiversity. Our data comes from
+                GBIF, a global network of naturalists, researchers, and citizen scientists documenting wildlife
+                observations. This project helps communities understand and appreciate the natural world in their
+                regions.</p>
+        </section>
+        <section id="contact" class="footer-section">
+            <h3>Get Involved</h3>
+            <p>Want to contribute wildlife sightings? Visit <a href="https://www.gbif.org/" target="_blank">GBIF.org</a>
+                to submit your observations. Help us build a comprehensive picture of Wisconsin's ecosystem!</p>
+        </section>
+    </footer>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script src="script.js"></script>

@@ -1,3 +1,6 @@
+/* Modern NatureScope Styles */
+
+/* ============= RESET & GLOBALS ============= */
 * {
     margin: 0;
     padding: 0;
@@ -5,196 +8,334 @@
 }
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
     line-height: 1.6;
-    color: #333;
+    color: #2c3e50;
+    background-color: #f8fafb;
+    position: relative;
+    z-index: 0;
 }
 
+/* ============= HEADER & NAVIGATION ============= */
 header {
-    background-color: #4CAF50;
+    background: linear-gradient(135deg, #2d5016 0%, #3d7c2f 100%);
     color: white;
-    padding: 1rem;
-    text-align: center;
+    padding: 1.5rem 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
-header h1 {
-    margin-bottom: 1rem;
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo-section h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.5px;
+}
+
+.tagline {
+    font-size: 0.95rem;
+    opacity: 0.95;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+nav {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
 }
 
 nav ul {
     list-style: none;
     display: flex;
-    justify-content: center;
     gap: 2rem;
 }
 
 nav a {
     color: white;
     text-decoration: none;
-    transition: color 0.3s;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 nav a:hover {
-    color: #ddd;
+    background-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
 }
 
-main {
-    margin: 0;
-    padding: 0;
+/* ============= HERO SECTION ============= */
+.hero-section {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    padding: 4rem 2rem;
+    text-align: center;
+    border-bottom: 3px solid #2d5016;
+    position: relative;
+    z-index: 1;
+}
+
+.hero-content {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.hero-section h2 {
+    font-size: 2.5rem;
+    color: #1b3a12;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+.hero-section>div>p {
+    font-size: 1.1rem;
+    color: #2d5016;
+    margin-bottom: 2rem;
+    line-height: 1.8;
+}
+
+.hero-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+}
+
+.feature {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(45, 80, 22, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.feature:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(45, 80, 22, 0.15);
+}
+
+.feature-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
+.feature-text strong {
+    display: block;
+    color: #2d5016;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.feature-text p {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* ============= MAP CONTAINER ============= */
+.map-container {
+    max-width: 1400px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 2rem;
+    align-items: start;
+    position: relative;
+    z-index: 1;
 }
 
 #map {
     width: 100%;
     height: 600px;
-    border: 2px solid #4CAF50;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: none;
+    position: relative;
+    z-index: 1;
 }
 
-#home {
-    margin-bottom: 0;
+/* ============= COUNTY INFO PANEL ============= */
+.county-info {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 600px;
 }
 
-section h2 {
-    color: #4CAF50;
-    margin-bottom: 1rem;
-    padding: 1rem 2rem 0 2rem;
-}
-
-#countyInfo {
-    padding: 1rem 2rem;
-    background-color: #f5f5f5;
-    border-top: 1px solid #ddd;
-}
-
-#countyInfo .countyHeader {
+.county-header {
+    background: linear-gradient(135deg, #2d5016 0%, #3d7c2f 100%);
+    color: white;
+    padding: 1.25rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
-#clearSelection {
+.county-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.btn-clear {
     background-color: #e74c3c;
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.3s;
+    white-space: nowrap;
 }
 
-/* Sightings Filter Group */
-#sightingsControls {
-    margin-bottom: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #ddd;
+.btn-clear:hover {
+    background-color: #d43f31;
+    transform: scale(1.05);
+}
+
+.btn-clear:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============= SIGHTINGS CONTROLS (FILTERS) ============= */
+.sightings-controls {
+    padding: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+    background-color: #fafafa;
 }
 
 .sightingsFilterGroup {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    flex-wrap: wrap;
 }
 
 .filterRow {
     display: flex;
-    gap: 2rem;
-    flex-wrap: wrap;
-    align-items: flex-end;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .filterItem {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .filterItem label {
-    font-weight: bold;
-    color: #333;
-    font-size: 0.95rem;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .yearRangeLabel {
-    color: #4CAF50;
-    font-weight: bold;
+    color: #2d5016;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#yearFilter,
+#typeFilter {
+    padding: 0.65rem;
+    border: 1.5px solid #d0d0d0;
+    border-radius: 6px;
     font-size: 0.95rem;
-}
-
-#yearFilter {
-    padding: 0.5rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 1rem;
     cursor: pointer;
+    background-color: white;
+    transition: all 0.3s;
+    color: #2c3e50;
 }
 
-.clearFilterBtn {
-    padding: 0.5rem 1rem;
-    background-color: #4CAF50;
+#yearFilter:hover,
+#typeFilter:hover {
+    border-color: #2d5016;
+    box-shadow: 0 2px 6px rgba(45, 80, 22, 0.1);
+}
+
+#yearFilter:focus,
+#typeFilter:focus {
+    outline: none;
+    border-color: #3d7c2f;
+    box-shadow: 0 0 0 3px rgba(61, 124, 47, 0.1);
+}
+
+.clearFilterBtn,
+.showAllBtn {
+    padding: 0.6rem 1.2rem;
+    background-color: #2d5016;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 0.9rem;
-    transition: background-color 0.3s;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.clearFilterBtn:hover {
-    background-color: #45a049;
+.clearFilterBtn:hover,
+.showAllBtn:hover {
+    background-color: #3d7c2f;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(45, 80, 22, 0.2);
 }
 
 .sightingCount {
-    color: #666;
-    font-size: 0.9rem;
-    margin-left: auto;
-}
-
-/* Pagination Controls */
-.pagination {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 1rem;
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid #ddd;
-}
-
-.pagination button {
-    padding: 0.5rem 1rem;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
+    color: #2d5016;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    background-color: #e8f5e9;
     border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
+    display: inline-block;
 }
 
-.pagination button:hover:not(:disabled) {
-    background-color: #45a049;
-}
-
-.pagination button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-}
-
-.pageInfo {
-    color: #333;
-    font-weight: bold;
-    min-width: 120px;
-    text-align: center;
-}
-
-#sightingsList {
+/* ============= SIGHTINGS LIST ============= */
+.sightings-list {
     list-style: none;
-    margin-top: 1rem;
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
 }
 
-#sightingsList li {
-    padding: 0.5rem;
-    border-bottom: 1px solid #ddd;
+.sightings-list li {
+    border-bottom: 1px solid #f0f0f0;
+    padding: 0;
 }
 
 .sightingItem {
-    padding: 0.75rem 0.5rem !important;
+    padding: 0.75rem 1rem;
     display: flex;
+    gap: 1rem;
     align-items: flex-start;
+    transition: all 0.3s;
+}
+
+.sightingItem:hover {
+    background-color: #f5f9f5;
 }
 
 .sightingContent {
@@ -209,32 +350,42 @@ section h2 {
     word-wrap: break-word;
 }
 
+.sightingText p {
+    font-size: 0.9rem;
+    color: #2c3e50;
+    margin: 0.25rem 0;
+}
+
+.sightingText strong {
+    color: #2d5016;
+    display: block;
+    font-size: 0.95rem;
+}
+
 .sightingImage {
     flex-shrink: 0;
-    width: 80px;
-    height: 80px;
-    background-color: #eee;
-    border-radius: 4px;
+    width: 70px;
+    height: 70px;
+    background-color: #f0f0f0;
+    border-radius: 6px;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     text-align: center;
-    padding: 0.25rem;
+    padding: 4px;
     color: #999;
+    border: 1px solid #e0e0e0;
 }
 
-.imageLoading {
-    font-size: 0.75rem;
-    color: #999;
-}
-
+.imageLoading,
 .imageNotFound,
 .imageError {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: #bbb;
     text-align: center;
+    line-height: 1.4;
 }
 
 .sightingThumbnail {
@@ -242,47 +393,68 @@ section h2 {
     height: 100%;
     object-fit: cover;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: block;
 }
 
 .sightingThumbnail:hover {
-    transform: scale(1.05);
+    transform: scale(1.1);
+    filter: brightness(1.1);
 }
 
 .noSightings {
-    color: #666;
+    color: #999;
     font-style: italic;
-}
-
-.hint {
-    color: #666;
-    font-size: 0.95rem;
-}
-
-button {
-    background-color: #4CAF50;
-    color: white;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: background-color 0.3s;
-}
-
-button:hover {
-    background-color: #45a049;
-}
-
-footer {
-    background-color: #333;
-    color: white;
+    padding: 2rem 1rem;
     text-align: center;
-    padding: 1rem;
-    margin-top: 3rem;
 }
 
-/* Image Modal/Lightbox */
+/* ============= PAGINATION ============= */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-top: 1px solid #e0e0e0;
+    background-color: #fafafa;
+}
+
+.pagination button {
+    padding: 0.6rem 1.2rem;
+    background-color: #2d5016;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pagination button:hover:not(:disabled) {
+    background-color: #3d7c2f;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(45, 80, 22, 0.2);
+}
+
+.pagination button:disabled {
+    background-color: #d0d0d0;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.pageInfo {
+    color: #2c3e50;
+    font-weight: 600;
+    min-width: 100px;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+/* ============= IMAGE MODAL/LIGHTBOX ============= */
 .modal {
     display: none;
     position: fixed;
@@ -291,8 +463,10 @@ footer {
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-    animation: fadeIn 0.3s;
+    background-color: rgba(0, 0, 0, 0.85);
+    animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 2rem;
+    overflow-y: auto;
 }
 
 .modal.show {
@@ -311,19 +485,43 @@ footer {
     }
 }
 
-.modalContent {
-    position: relative;
-    max-width: 90%;
-    max-height: 90%;
+.modal-close {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    color: white;
+    font-size: 2.5rem;
+    font-weight: 300;
+    cursor: pointer;
+    transition: all 0.3s;
+    z-index: 10001;
+    width: 40px;
+    height: 40px;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    animation: slideIn 0.3s;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.3);
+    line-height: 1;
+}
+
+.modal-close:hover {
+    background-color: rgba(231, 76, 60, 0.8);
+    transform: scale(1.1);
+}
+
+#modalImage {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes slideIn {
     from {
-        transform: scale(0.8);
+        transform: scale(0.85);
         opacity: 0;
     }
 
@@ -333,32 +531,539 @@ footer {
     }
 }
 
-#modalImage {
-    max-width: 90vw;
-    max-height: 80vh;
-    object-fit: contain;
-    border-radius: 8px;
+/* ============= IDENTIFY SECTION ============= */
+#identify-section {
+    background: white;
+    padding: 4rem 2rem;
+    margin: 3rem 0;
 }
 
-#modalCaption {
-    color: white;
-    margin-top: 1rem;
+.identify-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.identify-content {
     text-align: center;
+}
+
+.identify-content h2 {
+    font-size: 2rem;
+    color: #1b3a12;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.identify-content>p {
     font-size: 1rem;
+    color: #2d5016;
+    margin-bottom: 2.5rem;
 }
 
-.modalClose {
-    position: absolute;
-    top: 20px;
-    right: 35px;
-    color: white;
-    font-size: 40px;
-    font-weight: bold;
+.identify-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: start;
+    margin-top: 2rem;
+}
+
+/* Upload Area */
+.upload-area {
+    background: linear-gradient(135deg, #f0f9ee 0%, #e8f5e9 100%);
+    border: 2px dashed #2d5016;
+    border-radius: 12px;
+    padding: 2rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
-    transition: color 0.3s;
-    z-index: 10001;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.modalClose:hover {
-    color: #e74c3c;
+.upload-area:hover {
+    border-color: #3d7c2f;
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    box-shadow: 0 4px 12px rgba(45, 80, 22, 0.15);
+}
+
+.upload-area.dragover {
+    border-color: #3d7c2f;
+    background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+    box-shadow: 0 8px 24px rgba(45, 80, 22, 0.2);
+}
+
+.upload-input-wrapper {
+    width: 100%;
+    text-align: center;
+    position: relative;
+}
+
+.file-input {
+    display: none;
+}
+
+.upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    gap: 1rem;
+}
+
+.upload-icon {
+    font-size: 3rem;
+    display: block;
+}
+
+.upload-text {
+    text-align: center;
+}
+
+.upload-text strong {
+    display: block;
+    color: #2d5016;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.upload-text p {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Results Area */
+.results-area {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 2rem;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.identify-results {
+    width: 100%;
+    text-align: center;
+}
+
+.results-placeholder {
+    color: #999;
+    font-style: italic;
+    margin: 0;
+}
+
+.results-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.results-image {
+    width: 100%;
+    max-width: 250px;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.results-info {
+    text-align: left;
+    width: 100%;
+}
+
+.results-info h3 {
+    color: #2d5016;
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.result-item:last-child {
+    border-bottom: none;
+}
+
+.result-label {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.result-value {
+    color: #2d5016;
+    font-weight: 500;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e8f5e9;
+    border-top: 4px solid #2d5016;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-text {
+    color: #2d5016;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.error-message {
+    background-color: #ffebee;
+    color: #c62828;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+
+.success-message {
+    background-color: #e8f5e9;
+    color: #2d5016;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+
+/* ============= FOOTER ============= */
+footer {
+    background: linear-gradient(135deg, #2d5016 0%, #1b3a12 100%);
+    color: white;
+    padding: 3rem 2rem;
+    margin-top: 4rem;
+    position: relative;
+    z-index: 1;
+}
+
+.footer-section {
+    max-width: 1200px;
+    margin: 0 auto 2rem;
+}
+
+.footer-section:last-child {
+    margin-bottom: 0;
+}
+
+.footer-section h3 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    color: #c8e6c9;
+}
+
+.footer-section p {
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 1rem;
+}
+
+.footer-section a {
+    color: #c8e6c9;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.footer-section a:hover {
+    color: white;
+    text-decoration: underline;
+}
+
+/* ============= RESPONSIVE DESIGN ============= */
+@media (max-width: 1024px) {
+    .map-container {
+        grid-template-columns: 1fr;
+        padding: 0 1rem;
+    }
+
+    #map {
+        height: 500px;
+    }
+
+    .county-info {
+        height: 500px;
+    }
+
+    nav ul {
+        gap: 1rem;
+    }
+
+    .hero-section h2 {
+        font-size: 2rem;
+    }
+
+    .hero-features {
+        grid-template-columns: 1fr;
+    }
+
+    .identify-layout {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-container {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    nav {
+        justify-content: center;
+    }
+
+    nav ul {
+        gap: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .logo-section h1 {
+        font-size: 1.5rem;
+    }
+
+    .tagline {
+        font-size: 0.85rem;
+    }
+
+    .hero-section {
+        padding: 2.5rem 1rem;
+    }
+
+    .hero-section h2 {
+        font-size: 1.6rem;
+    }
+
+    .hero-section>div>p {
+        font-size: 1rem;
+    }
+
+    .map-container {
+        padding: 0 1rem;
+    }
+
+    #map,
+    .county-info {
+        height: 400px;
+    }
+
+    .pagination {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .pagination button {
+        padding: 0.5rem 1rem;
+        font-size: 0.75rem;
+    }
+
+    .pageInfo {
+        min-width: auto;
+        font-size: 0.8rem;
+    }
+
+    .sightingImage {
+        width: 60px;
+        height: 60px;
+    }
+
+    #modalImage {
+        max-width: 95vw;
+        max-height: 80vh;
+    }
+
+    footer {
+        padding: 2rem 1rem;
+    }
+
+    .footer-section h3 {
+        font-size: 1.1rem;
+    }
+
+    .footer-section p {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    header {
+        padding: 1rem;
+    }
+
+    .logo-section h1 {
+        font-size: 1.25rem;
+    }
+
+    .tagline {
+        font-size: 0.75rem;
+    }
+
+    nav ul {
+        gap: 1rem;
+        font-size: 0.85rem;
+    }
+
+    nav a {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+
+    .hero-section {
+        padding: 1.5rem 1rem;
+    }
+
+    .hero-section h2 {
+        font-size: 1.3rem;
+    }
+
+    .hero-section>div>p {
+        font-size: 0.95rem;
+    }
+
+    .hero-features {
+        gap: 1rem;
+    }
+
+    .feature {
+        padding: 1rem;
+    }
+
+    .feature-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .map-container {
+        padding: 0;
+        gap: 1rem;
+        margin: 1rem auto;
+    }
+
+    #map,
+    .county-info {
+        height: 300px;
+    }
+
+    .county-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .county-name {
+        font-size: 1rem;
+        flex: 1;
+        min-width: 150px;
+    }
+
+    .btn-clear {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+    }
+
+    .sightingsFilterGroup {
+        gap: 0.75rem;
+    }
+
+    .filterItem {
+        gap: 0.3rem;
+    }
+
+    .filterItem label {
+        font-size: 0.75rem;
+    }
+
+    #yearFilter,
+    #typeFilter {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .clearFilterBtn,
+    .showAllBtn {
+        padding: 0.5rem 1rem;
+        font-size: 0.75rem;
+    }
+
+    .sightingImage {
+        width: 50px;
+        height: 50px;
+    }
+
+    .sightingItem {
+        padding: 0.5rem 0.75rem;
+        gap: 0.75rem;
+    }
+
+    .sightingText {
+        font-size: 0.85rem;
+    }
+
+    .pagination {
+        margin: 0;
+        padding: 0.75rem;
+    }
+
+    .pageInfo {
+        font-size: 0.75rem;
+        min-width: auto;
+    }
+
+    .modal {
+        padding: 1rem;
+    }
+
+    .modal-close {
+        top: 1rem;
+        right: 1rem;
+        font-size: 2rem;
+        width: 36px;
+        height: 36px;
+    }
+
+    #modalImage {
+        max-width: 98vw;
+        max-height: 70vh;
+    }
+}
+
+/* ============= SCROLLBAR STYLING ============= */
+.sightings-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sightings-list::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 3px;
+}
+
+.sightings-list::-webkit-scrollbar-thumb {
+    background: #2d5016;
+    border-radius: 3px;
+}
+
+.sightings-list::-webkit-scrollbar-thumb:hover {
+    background: #3d7c2f;
 }
