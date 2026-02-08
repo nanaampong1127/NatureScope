@@ -238,8 +238,9 @@ def _try_google_vision(image_bytes: bytes) -> Optional[Dict]:
         # Try object localization as fallback (can detect multiple objects)
         print(f"[INFO] Running object localization...")
         object_resp = client.object_localization(image=image)
-        if object_resp.localized_objects and len(object_resp.localized_objects) > 0:
-            obj = object_resp.localized_objects[0]
+        localized_objects = getattr(object_resp, 'localized_object_annotations', [])
+        if localized_objects and len(localized_objects) > 0:
+            obj = localized_objects[0]
             obj_name = obj.name
             obj_score = getattr(obj, 'score', 0.5)
             print(f"[INFO] Detected object: {obj_name} ({obj_score:.2%})")
@@ -248,7 +249,7 @@ def _try_google_vision(image_bytes: bytes) -> Optional[Dict]:
                 "confidence": float(obj_score),
                 "source": "google_vision_objects",
                 "error": None,
-                "all_objects": [{"name": o.name, "score": float(getattr(o, 'score', 0.0)), "vertices": str(o.bounding_poly.normalized_vertices)[:100]} for o in object_resp.localized_objects[:5]]
+                "all_objects": [{"name": o.name, "score": float(getattr(o, 'score', 0.0)), "vertices": str(o.bounding_poly.normalized_vertices)[:100]} for o in localized_objects[:5]]
             }
 
         # Try landmark detection
@@ -303,9 +304,10 @@ def _get_additional_vision_details(client, image) -> Dict:
         # Get image properties (dominant colors)
         print(f"[DEBUG] Getting image properties...")
         props_resp = client.image_properties(image=image)
-        if props_resp.image_properties and props_resp.image_properties.dominant_colors:
+        img_props = getattr(props_resp, 'image_properties_annotation', None)
+        if img_props and img_props.dominant_colors:
             colors = []
-            for color_info in props_resp.image_properties.dominant_colors.colors[:3]:
+            for color_info in img_props.dominant_colors.colors[:3]:
                 rgb = color_info.color
                 hex_color = '#%02x%02x%02x' % (int(rgb.red), int(rgb.green), int(rgb.blue))
                 colors.append({
@@ -325,8 +327,9 @@ def _get_additional_vision_details(client, image) -> Dict:
         # Get object localization for multiple detections
         print(f"[DEBUG] Getting all objects...")
         objects_resp = client.object_localization(image=image)
-        if objects_resp.localized_objects:
-            objects = [{"name": o.name, "score": float(getattr(o, 'score', 0.0))} for o in objects_resp.localized_objects[:5]]
+        localized_objects = getattr(objects_resp, 'localized_object_annotations', [])
+        if localized_objects:
+            objects = [{"name": o.name, "score": float(getattr(o, 'score', 0.0))} for o in localized_objects[:5]]
             details["detected_objects"] = objects
         
         return details
