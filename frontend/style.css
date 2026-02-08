@@ -557,14 +557,13 @@ nav a:hover {
 #identify-section {
     background: white;
     padding: 4rem 2rem;
-    margin: 3rem 0;
+    margin: 3rem auto;
+    width: 100%;
 }
 
 .identify-container {
-    max-width: 1200px;
+    max-width: 980px;
     margin: 0 auto;
-    display: flex;
-    justify-content: center;
 }
 
 .identify-content {
@@ -597,9 +596,6 @@ nav a:hover {
     align-items: start;
     margin-top: 2rem;
     width: 100%;
-    max-width: 980px;
-    margin-left: auto;
-    margin-right: auto;
 }
 
 /* Upload Area */
