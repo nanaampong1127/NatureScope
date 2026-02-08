@@ -1,0 +1,259 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+}
+
+header {
+    background-color: #4CAF50;
+    color: white;
+    padding: 1rem;
+    text-align: center;
+}
+
+header h1 {
+    margin-bottom: 1rem;
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+nav a:hover {
+    color: #ddd;
+}
+
+main {
+    margin: 0;
+    padding: 0;
+}
+
+#map {
+    width: 100%;
+    height: 600px;
+    border: 2px solid #4CAF50;
+}
+
+#home {
+    margin-bottom: 0;
+}
+
+section h2 {
+    color: #4CAF50;
+    margin-bottom: 1rem;
+    padding: 1rem 2rem 0 2rem;
+}
+
+#countyInfo {
+    padding: 1rem 2rem;
+    background-color: #f5f5f5;
+    border-top: 1px solid #ddd;
+}
+
+#countyInfo .countyHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+#clearSelection {
+    background-color: #e74c3c;
+}
+
+#sightingsList {
+    list-style: none;
+    margin-top: 1rem;
+}
+
+#sightingsList li {
+    padding: 0.5rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.sightingItem {
+    padding: 0.75rem 0.5rem !important;
+    display: flex;
+    align-items: flex-start;
+}
+
+.sightingContent {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.sightingText {
+    flex: 1;
+    word-wrap: break-word;
+}
+
+.sightingImage {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    background-color: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    text-align: center;
+    padding: 0.25rem;
+    color: #999;
+}
+
+.imageLoading {
+    font-size: 0.75rem;
+    color: #999;
+}
+
+.imageNotFound,
+.imageError {
+    font-size: 0.7rem;
+    color: #bbb;
+    text-align: center;
+}
+
+.sightingThumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.sightingThumbnail:hover {
+    transform: scale(1.05);
+}
+
+.noSightings {
+    color: #666;
+    font-style: italic;
+}
+
+.hint {
+    color: #666;
+    font-size: 0.95rem;
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+footer {
+    background-color: #333;
+    color: white;
+    text-align: center;
+    padding: 1rem;
+    margin-top: 3rem;
+}
+
+/* Image Modal/Lightbox */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    animation: fadeIn 0.3s;
+}
+
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.modalContent {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: slideIn 0.3s;
+}
+
+@keyframes slideIn {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+#modalImage {
+    max-width: 90vw;
+    max-height: 80vh;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+#modalCaption {
+    color: white;
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 1rem;
+}
+
+.modalClose {
+    position: absolute;
+    top: 20px;
+    right: 35px;
+    color: white;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s;
+    z-index: 10001;
+}
+
+.modalClose:hover {
+    color: #e74c3c;
+}
