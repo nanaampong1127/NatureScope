@@ -5,6 +5,12 @@ let highlightedLayer = null;
 const countyData = {};
 let countyBounds = {}; // store bounds keyed by county name
 
+// Pagination and filtering state
+let currentSightings = [];
+let currentPage = 1;
+const itemsPerPage = 10;
+let selectedYear = null; // null means show all years
+
 document.addEventListener('DOMContentLoaded', function () {
     // Initialize the map
     initializeMap();
@@ -195,15 +201,15 @@ function setHighlightedLayer(layer, countyName) {
 }
 
 // --- GBIF API Integration ---
-function fetchGBIFData(bounds, limit = 50) {
+function fetchGBIFData(bounds, limit = 300) {
     // GBIF API documentation: https://www.gbif.org/developer/occurrence
-    // We'll search in Wisconsin within the county bounds
+    // We'll search in Wisconsin within the county bounds - fetch more results for better browsing
     const minLat = bounds.getSouthWest().lat;
     const minLng = bounds.getSouthWest().lng;
     const maxLat = bounds.getNorthEast().lat;
     const maxLng = bounds.getNorthEast().lng;
 
-    // Build GBIF occurrence search URL with geometry bounding box - include offset to get varied results
+    // Build GBIF occurrence search URL with geometry bounding box
     const url = `https://api.gbif.org/v1/occurrence/search?geometry=POLYGON((${minLng} ${minLat}, ${maxLng} ${minLat}, ${maxLng} ${maxLat}, ${minLng} ${maxLat}, ${minLng} ${minLat}))&stateProvince=Wisconsin&limit=${limit}&offset=0&hasGeometry=true`;
 
     return fetch(url)
@@ -219,6 +225,7 @@ function fetchGBIFData(bounds, limit = 50) {
                 id: r.key,
                 species: r.species || r.scientificName || 'Unknown',
                 date: r.eventDate ? r.eventDate.split('T')[0] : r.year ? `${r.year}-01-01` : 'Unknown',
+                year: r.year || (r.eventDate ? parseInt(r.eventDate.split('-')[0]) : null),
                 taxonRank: r.taxonRank || '',
                 recordedBy: r.recordedBy || '',
                 lat: r.decimalLatitude,
@@ -313,9 +320,12 @@ function renderSightings(countyName, layer) {
 
     // fetch GBIF data
     fetchGBIFData(bounds).then(sightings => {
-        list.innerHTML = '';
+        currentSightings = sightings;
+        currentPage = 1;
+        selectedYear = null;
 
         if (sightings.length === 0) {
+            list.innerHTML = '';
             const li = document.createElement('li');
             li.className = 'noSightings';
             li.textContent = 'No sightings found for this county.';
@@ -323,55 +333,147 @@ function renderSightings(countyName, layer) {
             return;
         }
 
-        // display up to 20 most recent with images
-        const displayCount = Math.min(20, sightings.length);
-        let imagesLoaded = 0;
+        // Extract unique years for filtering (all available from GBIF data)
+        const years = [...new Set(sightings.map(s => s.year).filter(Boolean))].sort((a, b) => b - a);
+        const yearRange = years.length > 0 ? `${Math.max(...years)} - ${Math.min(...years)}` : 'N/A';
 
-        sightings.slice(0, displayCount).forEach((s, index) => {
-            const li = document.createElement('li');
-            li.className = 'sightingItem';
-
-            const note = s.recordedBy ? ` (recorded by ${s.recordedBy})` : '';
-            const textContent = `<strong>${s.species}</strong> — ${s.date}${note}`;
-
-            // Create container with text on left
-            li.innerHTML = `
-                <div class="sightingContent">
-                    <div class="sightingText">${textContent}</div>
-                    <div class="sightingImage" id="img-${s.id}"><div class="imageLoading">Loading...</div></div>
-                </div>
-            `;
-            list.appendChild(li);
-
-            // Fetch image asynchronously - pass species for fallback
-            fetchOccurrenceMedia(s.id, s.species, s.mediaItems).then(imageUrl => {
-                const imgContainer = document.getElementById(`img-${s.id}`);
-                if (imgContainer) {
-                    if (imageUrl) {
-                        // Try loading with CORS handling
-                        imgContainer.innerHTML = `<img src="${imageUrl}" alt="${s.species}" class="sightingThumbnail" crossorigin="anonymous" onerror="this.parentElement.innerHTML='<div class=imageError>No image</div>'">`;
-
-                        // Add click handler to image to expand it
-                        const img = imgContainer.querySelector('img');
-                        if (img) {
-                            img.addEventListener('click', function () {
-                                openImageModal(imageUrl, s.species);
-                            });
-                        }
-                    } else {
-                        imgContainer.innerHTML = '<div class="imageNotFound">No image available</div>';
-                    }
-                }
+        // Update sightings controls with year filter
+        const controlsDiv = document.getElementById('sightingsControls');
+        if (controlsDiv) {
+            let filterHTML = `<div class="sightingsFilterGroup">
+                <label for="yearFilter">Filter by Year (<span class="yearRangeLabel">${yearRange}</span>):</label>
+                <select id="yearFilter" onchange="filterByYear(this.value)">
+                    <option value="" selected>All Years (${sightings.length})</option>`;
+            years.forEach(year => {
+                const yearCount = sightings.filter(s => s.year === year).length;
+                filterHTML += `<option value="${year}">${year} (${yearCount})</option>`;
             });
-        });
-
-        if (sightings.length > 20) {
-            const li = document.createElement('li');
-            li.className = 'noSightings';
-            li.textContent = `... and ${sightings.length - 20} more sightings`;
-            list.appendChild(li);
+            filterHTML += `</select>
+                <button class="clearFilterBtn" onclick="filterByYear('')">Show All</button>
+                <span class="sightingCount">Total: ${sightings.length} sightings</span>
+            </div>`;
+            controlsDiv.innerHTML = filterHTML;
         }
+
+        // Render the first page
+        renderPage();
     });
+}
+
+// Render current page with current filters applied
+function renderPage() {
+    const list = document.getElementById('sightingsList');
+    if (!list) return;
+
+    list.innerHTML = '';
+
+    // Filter sightings by selected year
+    let filteredSightings = currentSightings;
+    if (selectedYear) {
+        filteredSightings = currentSightings.filter(s => s.year === selectedYear);
+    }
+
+    if (filteredSightings.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'noSightings';
+        li.textContent = selectedYear ? `No sightings found for ${selectedYear}.` : 'No sightings found.';
+        list.appendChild(li);
+        return;
+    }
+
+    // Calculate pagination
+    const totalPages = Math.ceil(filteredSightings.length / itemsPerPage);
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    const endIdx = startIdx + itemsPerPage;
+    const pageItems = filteredSightings.slice(startIdx, endIdx);
+
+    // Render items for current page
+    pageItems.forEach((s, index) => {
+        const li = document.createElement('li');
+        li.className = 'sightingItem';
+
+        const note = s.recordedBy ? ` (recorded by ${s.recordedBy})` : '';
+        const textContent = `<strong>${s.species}</strong> — ${s.date}${note}`;
+
+        // Create container with text on left
+        li.innerHTML = `
+            <div class="sightingContent">
+                <div class="sightingText">${textContent}</div>
+                <div class="sightingImage" id="img-${s.id}"><div class="imageLoading">Loading...</div></div>
+            </div>
+        `;
+        list.appendChild(li);
+
+        // Fetch image asynchronously - pass species for fallback
+        fetchOccurrenceMedia(s.id, s.species, s.mediaItems).then(imageUrl => {
+            const imgContainer = document.getElementById(`img-${s.id}`);
+            if (imgContainer) {
+                if (imageUrl) {
+                    // Try loading with CORS handling
+                    imgContainer.innerHTML = `<img src="${imageUrl}" alt="${s.species}" class="sightingThumbnail" crossorigin="anonymous" onerror="this.parentElement.innerHTML='<div class=imageError>No image</div>'">`;
+
+                    // Add click handler to image to expand it
+                    const img = imgContainer.querySelector('img');
+                    if (img) {
+                        img.addEventListener('click', function () {
+                            openImageModal(imageUrl, s.species);
+                        });
+                    }
+                } else {
+                    imgContainer.innerHTML = '<div class="imageNotFound">No image available</div>';
+                }
+            }
+        });
+    });
+
+    // Add pagination controls
+    if (totalPages > 1) {
+        const paginationDiv = document.createElement('div');
+        paginationDiv.className = 'pagination';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = 'Previous';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => previousPage();
+
+        const pageInfo = document.createElement('span');
+        pageInfo.className = 'pageInfo';
+        pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Next';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.onclick = () => nextPage();
+
+        paginationDiv.appendChild(prevBtn);
+        paginationDiv.appendChild(pageInfo);
+        paginationDiv.appendChild(nextBtn);
+
+        list.appendChild(paginationDiv);
+    }
+}
+
+// Pagination functions
+function nextPage() {
+    const filteredSightings = selectedYear ? currentSightings.filter(s => s.year === selectedYear) : currentSightings;
+    const totalPages = Math.ceil(filteredSightings.length / itemsPerPage);
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderPage();
+    }
+}
+
+function previousPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        renderPage();
+    }
+}
+
+function filterByYear(year) {
+    selectedYear = year ? parseInt(year) : null;
+    currentPage = 1;
+    renderPage();
 }
 
 function clearSelection() {
@@ -382,7 +484,15 @@ function clearSelection() {
     const countyNameEl = document.getElementById('countyName');
     const clearBtn = document.getElementById('clearSelection');
     const list = document.getElementById('sightingsList');
+    const controlsDiv = document.getElementById('sightingsControls');
+
     if (countyNameEl) countyNameEl.textContent = 'No county selected';
     if (clearBtn) clearBtn.style.display = 'none';
     if (list) list.innerHTML = '';
+    if (controlsDiv) controlsDiv.innerHTML = '<p class="hint">Sightings (placeholder). Filters and controls will appear here.</p>';
+
+    // Reset pagination state
+    currentSightings = [];
+    currentPage = 1;
+    selectedYear = null;
 }
